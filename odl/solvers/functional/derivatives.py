@@ -26,7 +26,7 @@ import numpy as np
 
 from odl.solvers.functional.functional import Functional
 from odl.operator import Operator
-from odl.space.base_ntuples import FnBase
+from odl.space.base_tensors import TensorSpace
 
 
 __all__ = ('NumericalDerivative', 'NumericalGradient',)
@@ -48,7 +48,7 @@ class NumericalDerivative(Operator):
         ----------
         operator : `Operator`
             The operator whose derivative should be computed numerically. Its
-            domain and range must be `FnBase` spaces.
+            domain and range must be `TensorSpace` spaces.
         point : ``operator.domain`` `element-like`
             The point to compute the derivative in.
         method : {'backward', 'forward', 'central'}, optional
@@ -108,11 +108,11 @@ class NumericalDerivative(Operator):
         if not isinstance(operator, Operator):
             raise TypeError('`operator` has to be an `Operator` instance')
 
-        if not isinstance(operator.domain, FnBase):
-            raise TypeError('`operator.domain` has to be an `FnBase` '
+        if not isinstance(operator.domain, TensorSpace):
+            raise TypeError('`operator.domain` has to be an `TensorSpace` '
                             'instance')
-        if not isinstance(operator.range, FnBase):
-            raise TypeError('`operator.range` has to be an `FnBase` '
+        if not isinstance(operator.range, TensorSpace):
+            raise TypeError('`operator.range` has to be an `TensorSpace` '
                             'instance')
 
         self.operator = operator
@@ -172,6 +172,7 @@ class NumericalGradient(Operator):
         ----------
         functional : `Functional`
             The functional whose gradient should be computed. Its domain must
+            be a `TensorSpace`.
             be an `FnBase` space.
         method : {'backward', 'forward', 'central'}, optional
             The method to use to compute the gradient.
@@ -232,8 +233,8 @@ class NumericalGradient(Operator):
         if not isinstance(functional, Functional):
             raise TypeError('`functional` has to be a `Functional` instance')
 
-        if not isinstance(functional.domain, FnBase):
-            raise TypeError('`functional.domain` has to be an `FnBase` '
+        if not isinstance(functional.domain, TensorSpace):
+            raise TypeError('`functional.domain` has to be an `TensorSpace` '
                             'instance')
 
         self.functional = functional

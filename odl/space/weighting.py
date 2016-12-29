@@ -418,7 +418,7 @@ class MatrixWeighting(Weighting):
         Returns
         -------
         equivalent : bool
-            ``True`` if other is a `Weighting` instance with the same
+            ``True`` if ``other`` is a `Weighting` instance with the same
             `Weighting.impl`, which yields the same result as this
             weighting for any input, ``False`` otherwise. This is checked
             by entry-wise comparison of matrices/arrays/constants.
@@ -586,8 +586,8 @@ class ArrayWeighting(Weighting):
         Returns
         -------
         equals : bool
-            ``True`` if other is a `ArrayWeighting` instance with
-            **identical** array, ``False`` otherwise.
+            ``True`` if ``other`` is an `ArrayWeighting` instance with
+            **identical** array, False otherwise.
 
         See Also
         --------
@@ -610,7 +610,7 @@ class ArrayWeighting(Weighting):
         Returns
         -------
         equivalent : bool
-            ``True`` if other is a `Weighting` instance with the same
+            ``True`` if ``other`` is a `Weighting` instance with the same
             `Weighting.impl`, which yields the same result as this
             weighting for any input, ``False`` otherwise. This is checked
             by entry-wise comparison of arrays/constants.
@@ -697,7 +697,7 @@ class ConstWeighting(Weighting):
         Returns
         -------
         equal : bool
-            ``True`` if other is a `ConstWeighting` instance with the
+            ``True`` if ``other`` is a `ConstWeighting` instance with the
             same constant, ``False`` otherwise.
         """
         if other is self:

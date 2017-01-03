@@ -15,24 +15,15 @@
 # You should have received a copy of the GNU General Public License
 # along with ODL.  If not, see <http://www.gnu.org/licenses/>.
 
-
-# Imports for common Python 2/3 codebase
-from __future__ import print_function, division, absolute_import
-from future import standard_library
-standard_library.install_aliases()
-from builtins import super
-
-# External module imports
 import pytest
 import numpy as np
 import sys
 
-# ODL imports
 import odl
 from odl import (Operator, OperatorSum, OperatorComp,
                  OperatorLeftScalarMult, OperatorRightScalarMult,
                  FunctionalLeftVectorMult, OperatorRightVectorMult,
-                 MatVecOperator, OperatorLeftVectorMult,
+                 MatrixOperator, OperatorLeftVectorMult,
                  OpTypeError, OpDomainError, OpRangeError)
 from odl.operator.operator import _signature_from_spec, _dispatch_call_args
 from odl.util.testutils import almost_equal, all_almost_equal, noise_element
@@ -47,7 +38,7 @@ class MultiplyAndSquareOp(Operator):
         ran = (odl.rn(matrix.shape[0])
                if range is None else range)
 
-        super().__init__(dom, ran)
+        Operator.__init__(self, dom, ran)
         self.matrix = matrix
 
     def _call(self, rhs, out=None):
@@ -210,7 +201,7 @@ def test_linear_Op():
     x = np.random.rand(3)
     out = np.random.rand(3)
 
-    Aop = MatVecOperator(A)
+    Aop = MatrixOperator(A)
     xvec = Aop.domain.element(x)
     outvec = Aop.range.element()
 
@@ -229,7 +220,7 @@ def test_linear_op_nonsquare():
     x = np.random.rand(3)
     out = np.random.rand(4)
 
-    Aop = MatVecOperator(A)
+    Aop = MatrixOperator(A)
 
     xvec = Aop.domain.element(x)
     outvec = Aop.range.element()
@@ -248,7 +239,7 @@ def test_linear_adjoint():
     x = np.random.rand(4)
     out = np.random.rand(3)
 
-    Aop = MatVecOperator(A)
+    Aop = MatrixOperator(A)
     xvec = Aop.range.element(x)
     outvec = Aop.domain.element()
 
@@ -267,8 +258,8 @@ def test_linear_addition():
     x = np.random.rand(3)
     y = np.random.rand(4)
 
-    Aop = MatVecOperator(A)
-    Bop = MatVecOperator(B)
+    Aop = MatrixOperator(A)
+    Bop = MatrixOperator(B)
     xvec = Aop.domain.element(x)
     yvec = Aop.range.element(y)
 
@@ -293,7 +284,7 @@ def test_linear_scale():
     x = np.random.rand(3)
     y = np.random.rand(4)
 
-    Aop = MatVecOperator(A)
+    Aop = MatrixOperator(A)
     xvec = Aop.domain.element(x)
     yvec = Aop.range.element(y)
 
@@ -323,7 +314,7 @@ def test_linear_scale():
 def test_linear_right_vector_mult():
     A = np.random.rand(4, 3)
 
-    Aop = MatVecOperator(A)
+    Aop = MatrixOperator(A)
     vec = Aop.domain.element([1, 2, 3])
     x = Aop.domain.element([4, 5, 6])
     y = Aop.range.element([5, 6, 7, 8])
@@ -352,8 +343,8 @@ def test_linear_composition():
     x = np.random.rand(3)
     y = np.random.rand(5)
 
-    Aop = MatVecOperator(A)
-    Bop = MatVecOperator(B)
+    Aop = MatrixOperator(A)
+    Bop = MatrixOperator(B)
     xvec = Bop.domain.element(x)
     yvec = Aop.range.element(y)
 
@@ -370,7 +361,7 @@ def test_type_errors():
     r3 = odl.rn(3)
     r4 = odl.rn(4)
 
-    Aop = MatVecOperator(np.random.rand(3, 3))
+    Aop = MatrixOperator(np.random.rand(3, 3))
     r3Vec1 = r3.zero()
     r3Vec2 = r3.zero()
     r4Vec1 = r4.zero()

@@ -28,7 +28,7 @@ import sys
 import odl
 from odl.set.space import LinearSpaceTypeError
 from odl.space.npy_tensors import (
-    NumpyTensor, NumpyTensorSet, NumpyTensorSpace,
+    NumpyTensor, NumpyTensorSpace,
     MatrixOperator,
     NumpyTensorSpaceConstWeighting, NumpyTensorSpaceArrayWeighting,
     NumpyTensorSpaceNoWeighting, NumpyTensorSpaceCustomInner,
@@ -86,7 +86,7 @@ def tspace(floating_dtype):
 
 @pytest.fixture(scope='module')
 def tset(scalar_dtype):
-    return odl.tensor_set(shape=(3, 4), dtype=scalar_dtype)
+    return odl.tensor_space(shape=(3, 4), dtype=scalar_dtype)
 
 
 matrix_dtype = simple_fixture('matrix_dtype',
@@ -109,18 +109,18 @@ def matrix(matrix_dtype):
 def test_init_tset():
     """Test the different initialization patterns and options."""
     # Basic class constructors
-    NumpyTensorSet((3, 4), dtype='S1')
-    NumpyTensorSet((3, 4), dtype=int)
-    NumpyTensorSet((3, 4), dtype=float)
-    NumpyTensorSet((3, 4), dtype=complex)
-    NumpyTensorSet((3, 4), dtype=complex, order='C')
-    NumpyTensorSet((3, 4), dtype=complex, order='F')
-    NumpyTensorSet((3, 4), dtype=complex, order='K')
-    NumpyTensorSet(3, dtype=int)
+    NumpyTensorSpace((3, 4), dtype='S1')
+    NumpyTensorSpace((3, 4), dtype=int)
+    NumpyTensorSpace((3, 4), dtype=float)
+    NumpyTensorSpace((3, 4), dtype=complex)
+    NumpyTensorSpace((3, 4), dtype=complex, order='C')
+    NumpyTensorSpace((3, 4), dtype=complex, order='F')
+    NumpyTensorSpace((3, 4), dtype=complex, order='K')
+    NumpyTensorSpace(3, dtype=int)
 
     # Alternative constructors
-    odl.tensor_set((3, 4), dtype=int)
-    odl.tensor_set((3, 4), dtype='S1', order='F')
+    odl.tensor_space((3, 4), dtype=int)
+    odl.tensor_space((3, 4), dtype='S1', order='F')
 
 
 def test_init_tspace():
@@ -133,16 +133,13 @@ def test_init_tspace():
     NumpyTensorSpace((3, 4), dtype=complex, order='F')
     NumpyTensorSpace((3, 4), dtype=complex, exponent=1.0)
     NumpyTensorSpace((3, 4), dtype=complex, exponent=float('inf'))
+    NumpyTensorSpace((3, 4), dtype='S1')
 
     # Alternative constructor
     odl.tensor_space((3, 4))
     odl.tensor_space((3, 4), dtype=int)
     odl.tensor_space((3, 4), order='F')
     odl.tensor_space((3, 4), exponent=1.0)
-
-    # Only works with scalar data types
-    with pytest.raises(ValueError):
-        NumpyTensorSpace((3, 4), dtype='S1')
 
     # Constructors for real spaces
     odl.rn((3, 4))

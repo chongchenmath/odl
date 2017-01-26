@@ -61,7 +61,7 @@ exponent = simple_fixture(
 
 
 s_indices_params = [
-    0, [1], (1,), (0, 1), (2, 3),
+    0, [1], (1,), (0, 1), (2, 3), slice(None), slice(None, None, 2),
     (0, slice(None)), (slice(None, None, 2), slice(None))]
 setitem_indices = simple_fixture(name='indices', params=s_indices_params)
 
@@ -576,6 +576,31 @@ def test_pdist(exponent):
         correct_dist = np.linalg.norm((xarr - yarr).ravel(), ord=exponent)
         assert space.dist(x, y) == pytest.approx(correct_dist)
         assert x.dist(y) == pytest.approx(correct_dist)
+
+
+def test_space_getitem(getitem_indices):
+    """Check if space indexing works as expected."""
+    space = odl.tensor_space((2, 3, 4), dtype=complex, exponent=1, weighting=2)
+
+    if (isinstance(getitem_indices, tuple) or
+            (isinstance(getitem_indices, list) and
+             isinstance(getitem_indices[0], list))):
+        # tuples and lists of lists cannot be used
+        with pytest.raises(TypeError):
+            space[getitem_indices]
+    else:
+        if isinstance(getitem_indices, list):
+            new_shp = tuple(space.shape[i] for i in getitem_indices)
+        else:
+            new_shp = space.shape[getitem_indices]
+            if np.isscalar(new_shp):
+                new_shp = (new_shp,)
+
+        new_spc = space[getitem_indices]
+        assert new_spc.shape == new_shp
+        assert new_spc.exponent == space.exponent
+        assert new_spc.dtype == space.dtype
+        assert new_spc.weighting == space.weighting
 
 
 def test_element_getitem(getitem_indices):

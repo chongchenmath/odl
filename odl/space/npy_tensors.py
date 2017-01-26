@@ -766,6 +766,24 @@ class NumpyTensorSpace(TensorSpace):
         return hash((type(self), self.shape, self.dtype, self.order,
                      self.weighting))
 
+    def __getitem__(self, indices):
+        """Return ``self[indices]``."""
+        if isinstance(indices, list):
+            newshape = [self.shape[i] for i in indices]
+        else:
+            newshape = self.shape[indices]
+        if (newshape != self.shape and
+                isinstance(self.weighting, ArrayWeighting)):
+            # Cannot propagate the weighting array since the shape
+            # will be wrong. There is no unique way to get a weighting
+            # array for the new space, so we take no weighting.
+            weighting = NumpyTensorSpaceNoWeighting(
+                self.exponent, self.weighting.dist_using_inner)
+        else:
+            weighting = self.weighting
+        return type(self)(newshape, self.dtype, self.order,
+                          weighting=weighting)
+
     def __repr__(self):
         """Return ``repr(self)``."""
         if self.ndim == 1:

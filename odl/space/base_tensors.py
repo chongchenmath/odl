@@ -475,6 +475,14 @@ class TensorSpace(LinearSpace):
         """The entry-wise quotient of two tensors, assigned to ``out``."""
         raise NotImplementedError('abstract method')
 
+    def __getitem__(self, indices):
+        """Return ``self[indices]``."""
+        if isinstance(indices, list):
+            newshape = [self.shape[i] for i in indices]
+        else:
+            newshape = self.shape[indices]
+        return type(self)(newshape, self.dtype, self.order)
+
     @staticmethod
     def default_dtype(field=None):
         """Return the default data type for a given field.

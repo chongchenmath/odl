@@ -508,6 +508,8 @@ class LinearSpaceElement(object):
     # Convenience methods
     def __iadd__(self, other):
         """Implement ``self += other``."""
+        if not self.space.has_field:
+            return NotImplemented
         if other in self.space:
             return self.space.lincomb(1, self, 1, other, out=self)
         elif other in self.space.field:
@@ -527,6 +529,8 @@ class LinearSpaceElement(object):
     def __add__(self, other):
         """Return ``self + other``."""
         # Instead of using __iadd__ we duplicate code here for performance
+        if not self.space.has_field:
+            return NotImplemented
         if other in self.space:
             tmp = self.space.element()
             return self.space.lincomb(1, self, 1, other, out=tmp)
@@ -544,6 +548,8 @@ class LinearSpaceElement(object):
 
     def __isub__(self, other):
         """Implement ``self -= other``."""
+        if not self.space.has_field:
+            return NotImplemented
         if other in self.space:
             return self.space.lincomb(1, self, -1, other, out=self)
         elif other in self.space.field:
@@ -577,6 +583,8 @@ class LinearSpaceElement(object):
 
     def __rsub__(self, other):
         """Return ``other - self``."""
+        if not self.space.has_field:
+            return NotImplemented
         if other in self.space:
             tmp = self.space.element()
             return self.space.lincomb(1, other, -1, self, out=tmp)
@@ -594,6 +602,8 @@ class LinearSpaceElement(object):
 
     def __imul__(self, other):
         """Implement ``self *= other``."""
+        if not self.space.has_field:
+            return NotImplemented
         if other in self.space.field:
             return self.space.lincomb(other, self, out=self)
         elif other in self.space:
@@ -608,6 +618,8 @@ class LinearSpaceElement(object):
     def __mul__(self, other):
         """Return ``self * other``."""
         # Instead of using __imul__ we duplicate code here for performance
+        if not self.space.has_field:
+            return NotImplemented
         if other in self.space.field:
             tmp = self.space.element()
             return self.space.lincomb(other, self, out=tmp)
@@ -621,6 +633,8 @@ class LinearSpaceElement(object):
 
     def __itruediv__(self, other):
         """Implement ``self /= other``."""
+        if not self.space.has_field:
+            return NotImplemented
         if other in self.space.field:
             return self.space.lincomb(1.0 / other, self, out=self)
         elif other in self.space:
@@ -636,6 +650,8 @@ class LinearSpaceElement(object):
 
     def __truediv__(self, other):
         """Return ``self / other``."""
+        if not self.space.has_field:
+            return NotImplemented
         if other in self.space.field:
             tmp = self.space.element()
             return self.space.lincomb(1.0 / other, self, out=tmp)
@@ -670,6 +686,8 @@ class LinearSpaceElement(object):
         """Implement ``self ** p``.
 
         This is only defined for integer ``p``."""
+        if not self.space.has_field:
+            return NotImplemented
         p, p_in = int(p), p
         if p != p_in:
             raise ValueError('expected integer `p`, got {}'.format(p_in))
@@ -695,12 +713,16 @@ class LinearSpaceElement(object):
 
     def __pow__(self, p):
         """Return ``self ** p``."""
+        if not self.space.has_field:
+            return NotImplemented
         tmp = self.copy()
         tmp.__ipow__(p)
         return tmp
 
     def __neg__(self):
         """Return ``-self``."""
+        if not self.space.has_field:
+            return NotImplemented
         return (-1) * self
 
     def __pos__(self):

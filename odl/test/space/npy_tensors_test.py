@@ -89,8 +89,9 @@ def tset(scalar_dtype):
     return odl.tensor_space(shape=(3, 4), dtype=scalar_dtype)
 
 
-matrix_dtype = simple_fixture('matrix_dtype',
-                              ['float32', 'complex64', 'float64', 'complex64'])
+matrix_dtype = simple_fixture(
+    name='matrix_dtype',
+    params=['float32', 'complex64', 'float64', 'complex128'])
 
 
 @pytest.fixture(scope='module')
@@ -115,7 +116,7 @@ def test_init_tset():
     NumpyTensorSpace((3, 4), dtype=complex)
     NumpyTensorSpace((3, 4), dtype=complex, order='C')
     NumpyTensorSpace((3, 4), dtype=complex, order='F')
-    NumpyTensorSpace((3, 4), dtype=complex, order='K')
+    NumpyTensorSpace((3, 4), dtype=complex, order='A')
     NumpyTensorSpace(3, dtype=int)
 
     # Alternative constructors
@@ -669,17 +670,17 @@ def test_order(order):
         assert x.data.flags[order + '_CONTIGUOUS']
 
     # getitem with contiguous chunks should preserve order
-    if order in ('C', 'K'):
+    if order in ('C', 'A'):
         assert x[0, 1:3].order == order
         assert x[1:2, :].order == order
-    if order in ('F', 'K'):
+    if order in ('F', 'A'):
         assert x[1:3, 0].order == order
         assert x[:, 1:2].order == order
 
     assert x[...] in space
 
-    # non-contiguous slices result in 'K' ordering
-    assert x[::2, :].order == 'K'
+    # non-contiguous slices result in 'A' ordering
+    assert x[::2, :].order == 'A'
 
 
 def test_transpose():

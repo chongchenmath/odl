@@ -452,7 +452,7 @@ class DiscreteLp(DiscretizedSpace):
                        ('impl', self.impl, 'numpy'),
                        ('nodes_on_bdry', nodes_on_bdry, False),
                        ('dtype', dtype_s, default_dtype_s),
-                       ('order', self.order, 'K'),
+                       ('order', self.order, 'A'),
                        ('weighting', weighting, 'const'),
                        ('axis_labels', self.axis_labels, default_ax_lbl)]
 
@@ -467,7 +467,7 @@ class DiscreteLp(DiscretizedSpace):
 
             optargs = [('interp', self.interp, 'nearest'),
                        ('axis_labels', self.axis_labels, default_ax_lbl),
-                       ('order', self.order, 'K')]
+                       ('order', self.order, 'A')]
 
             inner_str = signature_string(posargs, optargs,
                                          sep=[',\n', ', ', ',\n'],
@@ -807,12 +807,12 @@ def uniform_discr_frompartition(partition, exponent=2.0, interp='nearest',
 
     Other Parameters
     ----------------
-    order : {'K', 'C', 'F'}, optional
+    order : {'A', 'C', 'F'}, optional
         Axis ordering of the data storage. Only relevant for more
         than 1 axis.
         For ``'C'`` and ``'F'``, elements are forced to use
         contiguous memory in the respective ordering.
-        For ``'K'`` no contiguousness is enforced.
+        For ``'A'`` ("any") no contiguousness is enforced.
     dtype : dtype
         Data type for the discretized space.
 
@@ -858,7 +858,7 @@ def uniform_discr_frompartition(partition, exponent=2.0, interp='nearest',
     if not partition.is_uniform:
         raise ValueError('`partition` is not uniform')
 
-    order = kwargs.pop('order', 'K')
+    order = kwargs.pop('order', 'A')
 
     dtype = kwargs.pop('dtype', None)
     if dtype is not None:
@@ -928,12 +928,12 @@ def uniform_discr_fromspace(fspace, shape, exponent=2.0, interp='nearest',
 
         Default: ``False``.
 
-    order : {'K', 'C', 'F'}, optional
+    order : {'A', 'C', 'F'}, optional
         Axis ordering of the data storage. Only relevant for more
         than 1 axis.
         For ``'C'`` and ``'F'``, elements are forced to use
         contiguous memory in the respective ordering.
-        For ``'K'`` no contiguousness is enforced.
+        For ``'A'`` ("any") no contiguousness is enforced.
     dtype : dtype, optional
         Data type for the discretized space. If not specified, the
         `FunctionSpace.out_dtype` of ``fspace`` is used.
@@ -1051,12 +1051,12 @@ def uniform_discr_fromintv(interval, shape, exponent=2.0, interp='nearest',
         boundaries.
         Default: ``False``
 
-    order : {'K', 'C', 'F'}, optional
+    order : {'A', 'C', 'F'}, optional
         Axis ordering of the data storage. Only relevant for more
         than 1 axis.
         For ``'C'`` and ``'F'``, elements are forced to use
         contiguous memory in the respective ordering.
-        For ``'K'`` no contiguousness is enforced.
+        For ``'A'`` ("any") no contiguousness is enforced.
     dtype : dtype
         Data type for the discretized space.
 
@@ -1141,12 +1141,12 @@ def uniform_discr(min_pt, max_pt, shape, exponent=2.0, interp='nearest',
 
             Default for ``'cuda'``: ``'float32'``
 
-    order : {'K', 'C', 'F'}, optional
+    order : {'A', 'C', 'F'}, optional
         Axis ordering of the data storage. Only relevant for more
         than 1 axis.
         For ``'C'`` and ``'F'``, elements are forced to use
         contiguous memory in the respective ordering.
-        For ``'K'`` no contiguousness is enforced.
+        For ``'A'`` ("any") no contiguousness is enforced.
     nodes_on_bdry : bool or sequence, optional
         If a sequence is provided, it determines per axis whether to
         place the last grid point on the boundary (``True``) or shift it
@@ -1235,12 +1235,12 @@ def discr_sequence_space(shape, exponent=2.0, impl='numpy', **kwargs):
 
             Default for ``'cuda'``: ``'float32'``
 
-    order : {'K', 'C', 'F'}, optional
+    order : {'A', 'C', 'F'}, optional
         Axis ordering of the data storage. Only relevant for more
         than 1 axis.
         For ``'C'`` and ``'F'``, elements are forced to use
         contiguous memory in the respective ordering.
-        For ``'K'`` no contiguousness is enforced.
+        For ``'A'`` ("any") no contiguousness is enforced.
     kwargs :
         Additional keyword parameters passed to the `DiscreteLp`
         initializer.

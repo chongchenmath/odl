@@ -38,7 +38,8 @@ from odl.space.weighting import (
     Weighting, ArrayWeighting, ConstWeighting, NoWeighting,
     CustomInner, CustomNorm, CustomDist)
 from odl.util.ufuncs import NumpyTensorSpaceUfuncs
-from odl.util import dtype_str, signature_string, moveaxis, is_real_dtype
+from odl.util import (
+    dtype_str, signature_string, moveaxis, is_real_dtype, indent_rows)
 
 
 __all__ = ('NumpyTensorSpace', 'NumpyTensorSpace', 'MatrixOperator')
@@ -73,7 +74,7 @@ class NumpyTensorSpace(TensorSpace):
     on tensors for further details.
     """
 
-    def __init__(self, shape, dtype=None, order='K', **kwargs):
+    def __init__(self, shape, dtype=None, order='A', **kwargs):
         """Initialize a new instance.
 
         Parameters
@@ -86,12 +87,12 @@ class NumpyTensorSpace(TensorSpace):
             way the `numpy.dtype` function understands, e.g.
             as built-in type or as a string. For ``None``,
             the `default_dtype` of this space is used.
-        order : {'K', 'C', 'F'}, optional
+        order : {'A', 'C', 'F'}, optional
             Axis ordering of the data storage. Only relevant for more
             than 1 axis.
             For ``'C'`` and ``'F'``, elements are forced to use
             contiguous memory in the respective ordering.
-            For ``'K'`` no contiguousness is enforced.
+            For ``'A'`` ("any") no contiguousness is enforced.
         exponent : positive float, optional
             Exponent of the norm. For values other than 2.0, no
             inner product is defined.
@@ -378,8 +379,8 @@ class NumpyTensorSpace(TensorSpace):
             return self.element_type(self, arr)
 
         elif inp is None and data_ptr is not None:
-            if self.order == 'K':
-                raise ValueError("`data_ptr` cannot be used with 'K' "
+            if self.order == 'A':
+                raise ValueError("`data_ptr` cannot be used with 'A' "
                                  "ordering")
             ctype_array_def = ctypes.c_byte * self.nbytes
             as_ctype_array = ctype_array_def.from_address(data_ptr)
@@ -393,9 +394,9 @@ class NumpyTensorSpace(TensorSpace):
                 # Short-circuit for space elements
                 return inp
 
-            # Use `view_order` to preserve views if possible
+            # Use `order` to preserve views if possible
             arr = np.array(inp, copy=False, dtype=self.dtype, ndmin=self.ndim,
-                           order=self.view_order)
+                           order=self.order)
             if arr.shape != self.shape:
                 raise ValueError('shape of `inp` not equal to space `shape`: '
                                  '{} != {}'.format(arr.shape, self.shape))
@@ -803,7 +804,7 @@ class NumpyTensorSpace(TensorSpace):
                 self.dtype != self.default_dtype(self.field)):
             posargs.append(dtype_str(self.dtype))
 
-        optargs = [('order', self.order, 'K')]
+        optargs = [('order', self.order, 'A')]
         inner_str = signature_string(posargs, optargs)
         weight_str = self.weighting.repr_part
         if weight_str:
@@ -1008,7 +1009,6 @@ class NumpyTensor(Tensor):
              [5.0, 6.0]]
         )
         """
-        # TODO: change after implementation indexing of `TensorSpace`
         arr = self.data[indices]
         if np.isscalar(arr):
             return arr
@@ -1019,8 +1019,8 @@ class NumpyTensor(Tensor):
                 out_spc_order = self.order
             else:
                 # To preserve the array view for non-contiguous slices,
-                # we need to use 'K' for the space in that case.
-                out_spc_order = 'K'
+                # we need to use 'A' for the space in that case.
+                out_spc_order = 'A'
             space = space_constructor(
                 arr.shape, dtype=self.dtype, order=out_spc_order,
                 exponent=self.space.exponent, weighting=self.space.weighting)
@@ -1150,7 +1150,7 @@ class NumpyTensor(Tensor):
             return self
         elif self.space.is_complex_space:
             # Definitely non-contiguous
-            real_space = self.space.astype(self.space.real_dtype, order='K')
+            real_space = self.space.astype(self.space.real_dtype, order='A')
             return real_space.element(self.data.real)
         else:
             raise NotImplementedError('`real` not defined for non-numeric '
@@ -1223,7 +1223,7 @@ class NumpyTensor(Tensor):
             return self.space.zero()
         elif self.space.is_complex_space:
             # Definitely non-contiguous
-            real_space = self.space.astype(self.space.real_dtype, order='K')
+            real_space = self.space.astype(self.space.real_dtype, order='A')
             return real_space.element(self.data.imag)
         else:
             raise NotImplementedError('`imag` not defined for non-numeric '
@@ -1369,7 +1369,7 @@ class NumpyTensor(Tensor):
         if self.size != 1:
             raise TypeError('only size-1 tensors can be converted to '
                             'Python scalars')
-        return complex(self.data.ravel()[0])
+        return complex(self.data[(0,) * self.ndim])
 
     @property
     def ufuncs(self):
@@ -1459,13 +1459,13 @@ def _lincomb(a, x1, b, x2, out, dtype):
     #     return
 
     # Need flat data for BLAS, otherwise in-place does not work
-    x1_arr = x1.data.ravel(order=x1.space.view_order)
-    x2_arr = x2.data.ravel(order=x1.space.view_order)
-    out_arr = out.data.ravel(order=x1.space.view_order)
+    x1_arr = x1.data.ravel(order=x1.order)
+    x2_arr = x2.data.ravel(order=x1.order)
+    out_arr = out.data.ravel(order=x1.order)
 
     if _blas_is_applicable(x1.data, x2.data, out.data):
         axpy, scal, copy = linalg.blas.get_blas_funcs(
-            ['axpy', 'scal', 'copy'], arrays=(x1.data, x2.data, out.data))
+            ['axpy', 'scal', 'copy'], arrays=(x1_arr, x2_arr, out_arr))
     else:
         # TODO: test if these really work properly, e.g., with
         # non-contiguous data!
@@ -1643,19 +1643,19 @@ def _norm_default(x):
         norm = partial(nrm2, n=native(x.size))
     else:
         norm = np.linalg.norm
-    return norm(x.data.ravel(order=x.space.view_order))
+    return norm(x.data.ravel(order=x.order))
 
 
 def _pnorm_default(x, p):
     """Default p-norm implementation."""
-    return np.linalg.norm(x.data.ravel(order=x.space.view_order), ord=p)
+    return np.linalg.norm(x.data.ravel(order=x.order), ord=p)
 
 
 def _pnorm_diagweight(x, p, w):
     """Diagonally weighted p-norm implementation."""
     # This is faster than first applying the weights and then summing with
     # BLAS dot or nrm2
-    xp = np.abs(x.data.ravel(order=x.space.view_order))
+    xp = np.abs(x.data.ravel(order=x.order))
     if np.isfinite(p):
         xp = np.power(xp, p, out=xp)
         xp *= w.ravel(order='K')  # w is a plain NumPy array
@@ -1675,8 +1675,8 @@ def _inner_default(x1, x2):
     else:
         dot = np.vdot  # slowest alternative
     # x2 as first argument because we want linearity in x1
-    return dot(x2.data.ravel(order=x2.space.view_order),
-               x1.data.ravel(order=x1.space.view_order))
+    return dot(x2.data.ravel(order=x2.order),
+               x1.data.ravel(order=x1.order))
 
 
 # TODO: implement intermediate weighting schemes with arrays that are
@@ -2168,12 +2168,13 @@ class MatrixOperator(Operator):
         if scipy.sparse.isspmatrix(matrix):
             self.__matrix = matrix
         else:
-            self.__matrix = np.asarray(matrix)
+            order = getattr(domain, 'order', None)
+            self.__matrix = np.array(matrix, copy=False, order=order,
+                                     ndmin=2)
 
         self.__axis, axis_in = int(axis), axis
         if self.axis != axis_in:
             raise ValueError('`axis` must be integer, got {}'.format(axis_in))
-
         if self.matrix.ndim != 2:
             raise ValueError('`matrix` has {} axes instead of 2'
                              ''.format(self.matrix.ndim))
@@ -2197,18 +2198,27 @@ class MatrixOperator(Operator):
                                  ''.format(domain.shape[axis],
                                            self.matrix.shape[1]))
 
-        # Infer or check range
         range_shape = list(domain.shape)
         range_shape[self.axis] = self.matrix.shape[0]
 
         if range is None:
+            # Infer range
             range_dtype = np.promote_types(self.matrix.dtype, domain.dtype)
-            range = NumpyTensorSpace(range_shape, dtype=range_dtype)
+            if (range_shape != domain.shape and
+                    isinstance(domain.weighting,
+                               NumpyTensorSpaceArrayWeighting)):
+                # Cannot propagate weighting due to size mismatch
+                weighting = NumpyTensorSpaceNoWeighting(
+                    domain.exponent, domain.weighting.dist_using_inner)
+            else:
+                weighting = domain.weighting
+            range = NumpyTensorSpace(range_shape, dtype=range_dtype,
+                                     order=domain.order, weighting=weighting)
         else:
+            # Check consistency of range
             if not isinstance(range, NumpyTensorSpace):
                 raise TypeError('`range` must be a `NumpyTensorSpace`'
                                 'instance, got {!r}'.format(range))
-
             if range.shape != tuple(range_shape):
                 raise ValueError('expected `range.shape` = {}, got {}'
                                  ''.format(tuple(range_shape), range.shape))
@@ -2294,6 +2304,7 @@ class MatrixOperator(Operator):
         """Return ``repr(self)``."""
         # Matrix printing itself in an executable way
         matrix_str = np.array2string(self.matrix, separator=', ')
+        posargs = [matrix_str]
 
         # Optional arguments with defaults, inferred from the matrix
         optargs = []
@@ -2312,14 +2323,10 @@ class MatrixOperator(Operator):
         # axis
         optargs.append(('axis', self.axis, 0))
 
-        opt_str = signature_string([], optargs)
-
-        # Put them together using a newline before and after the matrix
-        strings = [matrix_str]
-        if opt_str:
-            strings.append(opt_str)
-        inner_str = '\n' + ',\n'.join(strings)
-        return '{}({})'.format(self.__class__.__name__, inner_str)
+        inner_str = signature_string(posargs, optargs, sep=[', ', ', ', ',\n'],
+                                     mod=[['!s'], ['!r', '!r', '']])
+        return '{}(\n{}\n)'.format(self.__class__.__name__,
+                                   indent_rows(inner_str))
 
     __str__ = __repr__
 

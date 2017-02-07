@@ -27,9 +27,8 @@ standard_library.install_aliases()
 import numpy as np
 
 from odl.set.sets import Set
-from odl.util.utility import array1d_repr
-from odl.util.vectorization import (
-    is_valid_input_array, is_valid_input_meshgrid)
+from odl.util import (
+    array1d_repr, is_valid_input_array, is_valid_input_meshgrid)
 
 
 __all__ = ('IntervalProd',)
@@ -77,12 +76,15 @@ class IntervalProd(Set):
                              ''.format(len(self.min_pt), len(self.max_pt)))
 
         for axis, (xmin, xmax) in enumerate(zip(self.min_pt, self.max_pt)):
+            if np.isnan(xmin):
+                raise ValueError('in axis {}: min_pt is NaN'.format(axis))
+            if np.isnan(xmax):
+                raise ValueError('in axis {}: max_pt is NaN'.format(axis))
             if xmax < xmin:
                 raise ValueError('in axis {}: upper end smaller than lower '
                                  'end ({} < {})'.format(axis, xmax, xmin))
 
-        self.__ideg = np.where(self.min_pt == self.max_pt)[0]
-        self.__inondeg = np.where(self.min_pt != self.max_pt)[0]
+        self.__nondegen_byaxis = (self.min_pt != self.max_pt)
         super().__init__()
 
     @property
@@ -103,7 +105,7 @@ class IntervalProd(Set):
     @property
     def true_ndim(self):
         """Number of non-degenerate (positive-length) intervals."""
-        return len(self.inondeg)
+        return np.count_nonzero(self.nondegen_byaxis)
 
     @property
     def volume(self):
@@ -128,18 +130,20 @@ class IntervalProd(Set):
     def mid_pt(self):
         """Midpoint of this interval product."""
         midp = (self.max_pt + self.min_pt) / 2.
-        midp[self.ideg] = self.min_pt[self.ideg]
+        midp[~self.nondegen_byaxis] = self.min_pt[~self.nondegen_byaxis]
         return midp
 
     @property
-    def ideg(self):
-        """Indices of the degenerate dimensions."""
-        return self.__ideg
+    def nondegen_byaxis(self):
+        """Boolean array with ``True`` entries for non-degenerate axes.
 
-    @property
-    def inondeg(self):
-        """Indices of the non-degenerate dimensions."""
-        return self.__inondeg
+        Examples
+        --------
+        >>> intvp = IntervalProd([0, 0], [1, 0])
+        >>> intvp.nondegen_byaxis
+        array([ True, False], dtype=bool)
+        """
+        return self.__nondegen_byaxis
 
     def min(self):
         """Return the minimum point of this interval product."""
@@ -222,6 +226,10 @@ class IntervalProd(Set):
 
         return (np.all(self.min_pt == other.min_pt) and
                 np.all(self.max_pt == other.max_pt))
+
+    def __hash__(self):
+        """Return ``hash(self)``."""
+        return hash((type(self), tuple(self.min_pt), tuple(self.max_pt)))
 
     def approx_contains(self, point, atol):
         """Return ``True`` if ``point`` is "almost" contained in this set.
@@ -366,7 +374,7 @@ class IntervalProd(Set):
 
         Grids are also accepted as input:
 
-        >>> agrid = odl.uniform_sampling(rbox.min_pt, rbox.max_pt, [3, 1, 3])
+        >>> agrid = odl.uniform_grid(rbox.min_pt, rbox.max_pt, [3, 1, 3])
         >>> rbox.contains_all(agrid)
         True
         """
@@ -432,7 +440,7 @@ class IntervalProd(Set):
         elif ndim > self.true_ndim:
             return 0.0
         else:
-            return np.prod((self.max_pt - self.min_pt)[self.inondeg])
+            return np.prod(self.extent()[self.nondegen_byaxis])
 
     def dist(self, point, exponent=2.0):
         """Return the distance of ``point`` to this set.
@@ -564,8 +572,8 @@ class IntervalProd(Set):
         >>> rbox.collapse([0, 1, 2], [-1, 0, 2.5]).squeeze()
         IntervalProd([], [])
         """
-        b_new = self.min_pt[self.inondeg]
-        e_new = self.max_pt[self.inondeg]
+        b_new = self.min_pt[self.nondegen_byaxis]
+        e_new = self.max_pt[self.nondegen_byaxis]
         return IntervalProd(b_new, e_new)
 
     def insert(self, index, other):
@@ -670,8 +678,7 @@ class IntervalProd(Set):
         array([[-1. ,  2. ,  0. ],
                [-1. ,  2. ,  0.5],
                [-1. ,  3. ,  0. ],
-               [-1. ,  3. ,  0.5],
-               [-0.5,  2. ,  0. ],
+               ...,
                [-0.5,  2. ,  0.5],
                [-0.5,  3. ,  0. ],
                [-0.5,  3. ,  0.5]])
@@ -679,21 +686,20 @@ class IntervalProd(Set):
         array([[-1. ,  2. ,  0. ],
                [-0.5,  2. ,  0. ],
                [-1. ,  3. ,  0. ],
-               [-0.5,  3. ,  0. ],
-               [-1. ,  2. ,  0.5],
+               ...,
                [-0.5,  2. ,  0.5],
                [-1. ,  3. ,  0.5],
                [-0.5,  3. ,  0.5]])
         """
-        from odl.discr.grid import TensorGrid
+        from odl.discr.grid import RectGrid
 
         minmax_vecs = [0] * self.ndim
-        for axis in self.ideg:
+        for axis in np.where(~self.nondegen_byaxis)[0]:
             minmax_vecs[axis] = self.min_pt[axis]
-        for axis in self.inondeg:
+        for axis in np.where(self.nondegen_byaxis)[0]:
             minmax_vecs[axis] = (self.min_pt[axis], self.max_pt[axis])
 
-        minmax_grid = TensorGrid(*minmax_vecs)
+        minmax_grid = RectGrid(*minmax_vecs)
         return minmax_grid.points(order=order)
 
     def __len__(self):

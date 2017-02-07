@@ -30,19 +30,10 @@ import odl
 from odl.discr.lp_discr import DiscreteLp
 from odl.space.base_ntuples import FnBase
 from odl.util.testutils import (almost_equal, all_equal, all_almost_equal,
-                                noise_elements)
-
-# Pytest fixture
-
+                                noise_elements, simple_fixture)
 
 # Simply modify exp_params to modify the fixture
-exp_params = [2.0, 1.0, float('inf'), 0.5, 1.5]
-exp_ids = [' p = {} '.format(p) for p in exp_params]
-
-
-@pytest.fixture(scope="module", ids=exp_ids, params=exp_params)
-def exponent(request):
-    return request.param
+exponent = simple_fixture('exponent', [2.0, 1.0, float('inf'), 0.5, 1.5])
 
 
 def test_init(exponent):
@@ -153,7 +144,7 @@ def test_factory_nd(exponent):
 def test_element_1d(exponent):
     discr = odl.uniform_discr(0, 1, 3, impl='numpy', exponent=exponent)
     weight = 1.0 if exponent == float('inf') else discr.cell_volume
-    dspace = odl.rn(3, exponent=exponent, weight=weight)
+    dspace = odl.rn(3, exponent=exponent, weighting=weight)
     elem = discr.element()
     assert isinstance(elem, odl.DiscreteLpElement)
     assert elem.ntuple in dspace
@@ -163,7 +154,7 @@ def test_element_2d(exponent):
     discr = odl.uniform_discr([0, 0], [1, 1], [3, 3],
                               impl='numpy', exponent=exponent)
     weight = 1.0 if exponent == float('inf') else discr.cell_volume
-    dspace = odl.rn(9, exponent=exponent, weight=weight)
+    dspace = odl.rn(9, exponent=exponent, weighting=weight)
     elem = discr.element()
     assert isinstance(elem, odl.DiscreteLpElement)
     assert elem.ntuple in dspace
@@ -345,6 +336,38 @@ def test_zero():
     assert isinstance(zero, odl.DiscreteLpElement)
     assert isinstance(zero.ntuple, odl.NumpyFnVector)
     assert all_equal(zero, [0, 0, 0])
+
+
+def test_equals_space(exponent, fn_impl):
+    x1 = odl.uniform_discr(0, 1, 3, exponent=exponent, impl=fn_impl)
+    x2 = odl.uniform_discr(0, 1, 3, exponent=exponent, impl=fn_impl)
+    y = odl.uniform_discr(0, 1, 4, exponent=exponent, impl=fn_impl)
+
+    assert x1 is x1
+    assert x1 is not x2
+    assert x1 is not y
+    assert x1 == x1
+    assert x1 == x2
+    assert x1 != y
+    assert hash(x1) == hash(x2)
+    assert hash(x1) != hash(y)
+
+
+def test_equals_vec(exponent, fn_impl):
+    discr = odl.uniform_discr(0, 1, 3, exponent=exponent, impl=fn_impl)
+    discr2 = odl.uniform_discr(0, 1, 4, exponent=exponent, impl=fn_impl)
+    x1 = discr.element([1, 2, 3])
+    x2 = discr.element([1, 2, 3])
+    y = discr.element([2, 2, 3])
+    z = discr2.element([1, 2, 3, 4])
+
+    assert x1 is x1
+    assert x1 is not x2
+    assert x1 is not y
+    assert x1 == x1
+    assert x1 == x2
+    assert x1 != y
+    assert x1 != z
 
 
 def _test_unary_operator(discr, function):
@@ -760,12 +783,12 @@ def test_ufunc(fn_impl, ufunc):
     out_vectors = vectors[n_args:]
 
     # Verify type
-    assert isinstance(data_vector.ufunc,
-                      odl.util.ufuncs.DiscreteLpUFuncs)
+    assert isinstance(data_vector.ufuncs,
+                      odl.util.ufuncs.DiscreteLpUfuncs)
 
     # Out-of-place:
     np_result = ufunc(*in_arrays)
-    vec_fun = getattr(data_vector.ufunc, name)
+    vec_fun = getattr(data_vector.ufuncs, name)
     odl_result = vec_fun(*in_vectors)
     assert all_almost_equal(np_result, odl_result)
 
@@ -778,7 +801,7 @@ def test_ufunc(fn_impl, ufunc):
 
     # In-place:
     np_result = ufunc(*(in_arrays + out_arrays))
-    vec_fun = getattr(data_vector.ufunc, name)
+    vec_fun = getattr(data_vector.ufuncs, name)
     odl_result = vec_fun(*(in_vectors + out_vectors))
     assert all_almost_equal(np_result, odl_result)
 
@@ -791,7 +814,7 @@ def test_ufunc(fn_impl, ufunc):
 
     # Test out-of-place with np data
     np_result = ufunc(*in_arrays)
-    vec_fun = getattr(data_vector.ufunc, name)
+    vec_fun = getattr(data_vector.ufuncs, name)
     odl_result = vec_fun(*in_arrays[1:])
     assert all_almost_equal(np_result, odl_result)
 
@@ -864,7 +887,7 @@ def test_reduction(fn_impl, reduction):
 
     # Create some data
     x_arr, x = noise_elements(space, 1)
-    assert almost_equal(ufunc(x_arr), getattr(x.ufunc, name)())
+    assert almost_equal(ufunc(x_arr), getattr(x.ufuncs, name)())
 
 
 powers = [1.0, 2.0, 0.5, -0.5, -1.0, -2.0]
@@ -996,11 +1019,11 @@ def test_norm_rectangle_boundary(fn_impl, exponent):
                             (rect.volume) ** (1 / exponent))
 
     # Completely arbitrary boundary
-    grid = odl.RegularGrid([0, 0], [1, 1], (4, 4))
+    grid = odl.uniform_grid([0, 0], [1, 1], (4, 4))
     part = odl.RectPartition(rect, grid)
     weight = 1.0 if exponent == float('inf') else part.cell_volume
     dspace = odl.rn(part.size, dtype=dtype, impl=fn_impl, exponent=exponent,
-                    weight=weight)
+                    weighting=weight)
     discr = DiscreteLp(fspace, part, dspace, exponent=exponent)
 
     if exponent == float('inf'):

@@ -61,6 +61,7 @@ test_path = os.path.join(root_path, 'odl', 'test')
 
 
 def find_tests():
+    """Discover the test files for packaging."""
     tests = []
     for path, _, filenames in os.walk(os.path.join(root_path, test_path)):
         for filename in filenames:
@@ -71,6 +72,14 @@ def find_tests():
                 tests.append(os.path.join(path, filename))
 
     return tests
+
+
+# Determine version from top-level package __init__.py file
+with open(os.path.join(root_path, 'odl', '__init__.py')) as f:
+    for line in f:
+        if line.startswith('__version__'):
+            version = line.strip().split()[-1][1:-1]
+            break
 
 
 long_description = """
@@ -94,6 +103,7 @@ Features
 - Objects to represent mathematical notions like vector spaces and operators, including properties as expected from mathematics (inner product, norm, operator composition, ...)
 - Convenience functionality for operators like arithmetic, composition, operator matrices etc., which satisfy the known mathematical rules.
 - Out-of-the-box support for frequently used operators like scaling, partial derivative, gradient, Fourier transform etc.
+- A versatile and pluggable library of optimization routines for smooth and non-smooth problems, such as CGLS, BFGS, Chambolle-Pock and Douglas-Rachford splitting.
 - Support for tomographic imaging with a unified geometry representation and bindings to external libraries for efficient computation of projections and back-projections.
 - Standardized tests to validate implementations against expected behavior of the corresponding mathematical object, e.g. if a user-defined norm satisfies `norm(x + y) <= norm(x) + norm(y)` for a number of input vectors `x` and `y`.
 """
@@ -101,7 +111,7 @@ Features
 setup(
     name='odl',
 
-    version='0.5.2',
+    version=version,
 
     description='Operator Discretization Library',
     long_description=long_description,

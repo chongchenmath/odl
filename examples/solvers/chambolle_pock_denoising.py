@@ -1,20 +1,3 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """Total variation denoising using the Chambolle-Pock solver.
 
 Solves the optimization problem
@@ -63,7 +46,7 @@ op = odl.BroadcastOperator(odl.IdentityOperator(space), gradient)
 l2_norm = odl.solvers.L2NormSquared(space).translated(noisy)
 
 # Isotropic TV-regularization: l1-norm of grad(x)
-l1_norm = 0.2 * odl.solvers.L1Norm(gradient.range)
+l1_norm = 0.15 * odl.solvers.L1Norm(gradient.range)
 
 # Make separable sum of functionals, order must correspond to the operator K
 f = odl.solvers.SeparableSum(l2_norm, l1_norm)
@@ -78,13 +61,13 @@ g = odl.solvers.IndicatorNonnegativity(op.domain)
 # Estimated operator norm, add 10 percent to ensure ||K||_2^2 * sigma * tau < 1
 op_norm = 1.1 * odl.power_method_opnorm(op, xstart=noisy)
 
-niter = 400  # Number of iterations
+niter = 200  # Number of iterations
 tau = 1.0 / op_norm  # Step size for the primal variable
 sigma = 1.0 / op_norm  # Step size for the dual variable
 
 # Optional: pass callback objects to solver
 callback = (odl.solvers.CallbackPrintIteration() &
-            odl.solvers.CallbackShow(display_step=20))
+            odl.solvers.CallbackShow(display_step=5))
 
 # Starting point
 x = op.domain.zero()
@@ -96,4 +79,4 @@ odl.solvers.chambolle_pock_solver(
 # Display images
 orig.show(title='original image')
 noisy.show(title='noisy image')
-x.show(title='reconstruction', show=True)
+x.show(title='reconstruction', force_show=True)

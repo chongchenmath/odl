@@ -28,11 +28,12 @@ import numpy as np
 
 from odl.set import (Set, RealNumbers, ComplexNumbers, LinearSpace,
                      LinearSpaceElement)
-from odl.util.ufuncs import NtuplesBaseUFuncs
-from odl.util.utility import (
-    array1d_repr, array1d_str, dtype_repr, with_metaclass,
+from odl.util.ufuncs import NtuplesBaseUfuncs
+from odl.util import (
+    array1d_repr, array1d_str, dtype_repr,
     is_scalar_dtype, is_real_dtype, is_floating_dtype,
     complex_dtype, real_dtype)
+from odl.util.utility import with_metaclass
 
 
 __all__ = ('NtuplesBase', 'NtuplesBaseVector', 'FnBase', 'FnBaseVector')
@@ -138,6 +139,10 @@ class NtuplesBase(Set):
                 self.size == other.size and
                 self.dtype == other.dtype)
 
+    def __hash__(self):
+        """Return ``hash(self)``."""
+        return hash((type(self), self.size, self.dtype))
+
     def __repr__(self):
         """Return ``repr(self)``."""
         return '{}({}, {})'.format(self.__class__.__name__, self.size,
@@ -194,7 +199,7 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
         step : int, optional
             Vector index step between consecutive array ellements.
             ``None`` is equivalent to 1.
-        out : `numpy.ndarray`
+        out : `numpy.ndarray`, optional
             Array to write the result to.
 
         Returns
@@ -408,15 +413,15 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
                                          array1d_repr(self))
 
     @property
-    def ufunc(self):
+    def ufuncs(self):
         """Internal class for access to Numpy style universal functions.
 
         These default ufuncs are always available, but may or may not be
         optimized for the specific space in use.
         """
-        return NtuplesBaseUFuncs(self)
+        return NtuplesBaseUfuncs(self)
 
-    def show(self, title=None, method='scatter', show=False, fig=None,
+    def show(self, title=None, method='scatter', force_show=False, fig=None,
              **kwargs):
         """Display this vector graphically.
 
@@ -432,15 +437,16 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
             'plot' : graph plot
 
-        show : bool, optional
-            If ``True``, the plot is shown immediately. Otherwise, display is
-            deferred to a later point in time.
+        force_show : bool, optional
+            Whether the plot should be forced to be shown now or deferred until
+            later. Note that some backends always displays the plot, regardless
+            of this value.
         fig : `matplotlib.figure.Figure`, optional
             Figure to draw into. Expected to be of same "style" as
             the figure given by this function. The most common use case
             is that ``fig`` is the return value of an earlier call to
             this function.
-        kwargs : {'figsize', 'saveto', ...}
+        kwargs : {'figsize', 'saveto', ...}, optional
             Extra keyword arguments passed on to the display method.
             See the Matplotlib functions for documentation of extra
             options.
@@ -456,10 +462,11 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
         odl.util.graphics.show_discrete_data : Underlying implementation
         """
         from odl.util.graphics import show_discrete_data
-        from odl.discr import RegularGrid
-        grid = RegularGrid(0, self.size - 1, self.size)
+        from odl.discr import uniform_grid
+        grid = uniform_grid(0, self.size - 1, self.size)
         return show_discrete_data(self.asarray(), grid, title=title,
-                                  method=method, show=show, fig=fig, **kwargs)
+                                  method=method, force_show=force_show,
+                                  fig=fig, **kwargs)
 
     @property
     def impl(self):
@@ -546,7 +553,7 @@ class FnBase(NtuplesBase, LinearSpace):
 
     def _astype(self, dtype):
         """Internal helper for ``astype``. Can be overridden by subclasses."""
-        return type(self)(self.size, dtype=dtype, weight=self.weighting)
+        return type(self)(self.size, dtype=dtype, weighting=self.weighting)
 
     def astype(self, dtype):
         """Return a copy of this space with new ``dtype``.

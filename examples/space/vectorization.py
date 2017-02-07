@@ -1,20 +1,3 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """Example showing how to use vectorization of `FunctionSpaceElement`'s."""
 
 import numpy as np
@@ -92,7 +75,7 @@ def numba_example():
 
     # Create a unform grid in [0, 1] x [0, 1] (fspace.domain) with 2000
     # samples per dimension.
-    grid = odl.uniform_sampling_fromintv(fspace.domain, [2000, 2000])
+    grid = odl.uniform_grid_fromintv(fspace.domain, [2000, 2000])
     # The points() method really creates all grid points (2000^2) and
     # stores them one-by-one (row-wise) in a large array with shape
     # (2000*2000, 2). Since the function expects points[i] to be the

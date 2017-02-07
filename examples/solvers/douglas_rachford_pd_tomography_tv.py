@@ -1,20 +1,3 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """Total variation sparse angle tomography using the Douglas-Rachford solver.
 
 Solves the optimization problem
@@ -67,14 +50,12 @@ angle_partition = odl.uniform_partition(0, np.pi, 22)
 detector_partition = odl.uniform_partition(-30, 30, 512)
 geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 
-# Ray transform (= forward projection). We use ASTRA CUDA backend.
-ray_trafo = odl.tomo.RayTransform(space, geometry, impl='astra_cuda')
+# Ray transform (= forward projection).
+ray_trafo = odl.tomo.RayTransform(space, geometry)
 
 # Create sinogram
 phantom = odl.phantom.shepp_logan(space, modified=True)
 data = ray_trafo(phantom)
-phantom.show('Phantom')
-data.show('Sinogram')
 
 # --- Create functionals for solving the optimization problem ---
 
@@ -100,7 +81,13 @@ elif data_matching == 'inexact':
     # Note that we use right multiplication in order to scale in input argument
     # instead of the result of the functional, as would be the case with left
     # multiplication.
-    eps = 1e-4
+    eps = 5.0
+
+    # Add noise to data
+    raw_noise = odl.phantom.white_noise(ray_trafo.range)
+    data += raw_noise * eps / raw_noise.norm()
+
+    # Create indicator
     indicator_l2_ball = odl.solvers.IndicatorLpUnitBall(ray_trafo.range, 2)
     indicator_data = indicator_l2_ball.translated(data / eps) * (1 / eps)
 else:
@@ -117,7 +104,7 @@ g = [indicator_data, cross_norm]
 
 # Create callback that prints the iteration number and shows partial results
 callback = (odl.solvers.CallbackShow('iterates',
-                                     display_step=20, clim=[0, 1]) &
+                                     display_step=5, clim=[0, 1]) &
             odl.solvers.CallbackPrintIteration())
 
 # Solve with initial guess x = 0.
@@ -131,3 +118,5 @@ odl.solvers.douglas_rachford_pd(x, f, g, lin_ops,
 # Compare with filtered back-projection
 fbp_recon = odl.tomo.fbp_op(ray_trafo)(data)
 fbp_recon.show('FBP reconstruction')
+phantom.show('Phantom')
+data.show('Sinogram')

@@ -1,20 +1,3 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """Tomography using the `bfgs_method` solver.
 
 Solves the optimization problem
@@ -38,23 +21,15 @@ reco_space = odl.uniform_discr(
     min_pt=[-20, -20], max_pt=[20, 20], shape=[200, 200])
 
 # Make a parallel beam geometry with flat detector
-# Angles: uniformly spaced, n = 400, min = 0, max = 2 * pi
+# Angles: uniformly spaced, n = 400, min = 0, max = pi
 angle_partition = odl.uniform_partition(0, np.pi, 400)
 
 # Detector: uniformly sampled, n = 400, min = -30, max = 30
 detector_partition = odl.uniform_partition(-30, 30, 400)
 geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 
-# The implementation of the ray transform to use, options:
-# 'scikit'                    Requires scikit-image (can be installed by
-#                             running ``pip install scikit-image``).
-# 'astra_cpu', 'astra_cuda'   Require astra tomography to be installed.
-#                             Astra is much faster than scikit. Webpage:
-#                             https://github.com/astra-toolbox/astra-toolbox
-impl = 'astra_cuda'
-
 # Create the forward operator
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl=impl)
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
 
 # --- Generate artificial data --- #
 
@@ -101,4 +76,4 @@ odl.solvers.douglas_rachford_pd
 # Display images
 discr_phantom.show(title='original image')
 data.show(title='sinogram')
-x.show(title='reconstructed image', show=True)
+x.show(title='reconstructed image', force_show=True)

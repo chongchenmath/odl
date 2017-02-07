@@ -34,7 +34,7 @@ from odl.operator import Operator
 from odl.discr.partition import RectPartition
 from odl.space.base_ntuples import NtuplesBase, FnBase
 from odl.space import FunctionSet, FunctionSpace
-from odl.util.vectorization import (
+from odl.util import (
     is_valid_input_meshgrid, out_shape_from_array, out_shape_from_meshgrid)
 
 
@@ -62,12 +62,12 @@ class FunctionSetMapping(Operator):
             discretized
         partition : `RectPartition`
             Partition of (a subset of) ``fset.domain`` based on a
-            `TensorGrid`
+            `RectGrid`.
         dspace : `NtuplesBase`
             Data space providing containers for the values of a
             discretized object. Its `NtuplesBase.size` must be equal
             to the total number of grid points.
-        linear : bool
+        linear : bool, optional
             Create a linear operator if ``True``, otherwise a non-linear
             operator.
         order : {'C', 'F'}, optional
@@ -136,6 +136,11 @@ class FunctionSetMapping(Operator):
                     self.partition == other.partition and
                     self.order == other.order)
 
+    def __hash__(self):
+        """Return ``hash(self)``."""
+        return hash((type(self), self.domain, self.range, self.partition,
+                     self.order))
+
     @property
     def partition(self):
         """Underlying domain partition."""
@@ -180,13 +185,13 @@ class PointCollocation(FunctionSetMapping):
 
         Parameters
         ----------
-        fset : `FunctionSet`
+        ip_fset : `FunctionSet`
             The non-discretized (abstract) set of functions to be
             discretized. The function domain must provide a
             `Set.contains_set` method.
         partition : `RectPartition`
             Partition of (a subset of) ``ip_fset.domain`` based on a
-            `TensorGrid`
+            `RectGrid`
         dspace : `NtuplesBase`
             Data space providing containers for the values of a
             discretized object. Its `NtuplesBase.size` must be equal
@@ -205,10 +210,10 @@ class PointCollocation(FunctionSetMapping):
         >>> rect = odl.IntervalProd([1, 3], [2, 5])
         >>> funcset = odl.FunctionSpace(rect)
 
-        Partition the rectangle by a tensor grid:
+        Partition the rectangle by a rectilinear grid:
 
         >>> rect = odl.IntervalProd([1, 3], [2, 5])
-        >>> grid = odl.TensorGrid([1, 2], [3, 4, 5])
+        >>> grid = odl.RectGrid([1, 2], [3, 4, 5])
         >>> partition = odl.RectPartition(rect, grid)
         >>> rn = odl.rn(grid.size)
 
@@ -267,7 +272,7 @@ vectorization_guide.html>`_ for a detailed introduction.
 
         See Also
         --------
-        odl.discr.grid.TensorGrid.meshgrid
+        odl.discr.grid.RectGrid.meshgrid
         numpy.meshgrid
         """
         mesh = self.grid.meshgrid
@@ -476,7 +481,7 @@ class LinearInterpolation(FunctionSetMapping):
             `Set.contains_set` method.
         partition : `RectPartition`
             Partition of (a subset of) ``fspace.domain`` based on a
-            `TensorGrid`
+            `RectGrid`
         dspace : `FnBase`
             Data space providing containers for the values of a
             discretized object. Its `NtuplesBase.size` must be equal
@@ -556,7 +561,7 @@ class PerAxisInterpolation(FunctionSetMapping):
             `Set.contains_set` method.
         partition : `RectPartition`
             Partition of (a subset of) ``fspace.domain`` based on a
-            `TensorGrid`
+            `RectGrid`
         dspace : `FnBase`
             Data space providing containers for the values of a
             discretized object. Its `NtuplesBase.size` must be equal

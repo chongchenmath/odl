@@ -1,20 +1,3 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """Tomography with nuclear norm regularization.
 
 Solves the optimization problem
@@ -53,32 +36,24 @@ space = odl.uniform_discr(
     min_pt=[-20, -20], max_pt=[20, 20], shape=[100, 100], dtype='float32')
 
 # Make a parallel beam geometry with flat detector
-# Angles: uniformly spaced, n = 300, min = 0, max = 2 * pi
-angle_partition = odl.uniform_partition(0, 2 * np.pi, 300)
+# Angles: uniformly spaced, n = 300, min = 0, max = pi
+angle_partition = odl.uniform_partition(0, np.pi, 300)
 # Detector: uniformly sampled, n = 300, min = -30, max = 30
 detector_partition = odl.uniform_partition(-30, 30, 300)
 geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 
-# The implementation of the ray transform to use, options:
-# 'scikit'                    Requires scikit-image (can be installed by
-#                             running ``pip install scikit-image``).
-# 'astra_cpu', 'astra_cuda'   Requires astra tomography to be installed.
-#                             Astra is much faster than scikit. Webpage:
-#                             https://github.com/astra-toolbox/astra-toolbox
-impl = 'astra_cuda'
-
 # Create the forward operator, and also the vectorial forward operator.
-ray_trafo = odl.tomo.RayTransform(space, geometry, impl=impl)
+ray_trafo = odl.tomo.RayTransform(space, geometry)
 forward_op = odl.DiagonalOperator(ray_trafo, 2)
 
 # Create phantom where the first component contains only part of the
 # information in the  second component.
 # We do this by using a sub-set of the ellipses in the well known Shepp-Logan
 # phantom.
-ellipses = odl.phantom.shepp_logan_ellipses(space.ndim, modified=True)
+ellipses = odl.phantom.shepp_logan_ellipsoids(space.ndim, modified=True)
 phantom = forward_op.domain.element(
-    [odl.phantom.ellipse_phantom(space, ellipses[:2]),
-     odl.phantom.ellipse_phantom(space, ellipses)])
+    [odl.phantom.ellipsoid_phantom(space, ellipses[:2]),
+     odl.phantom.ellipsoid_phantom(space, ellipses)])
 phantom.show('phantom')
 
 # Create data where second channel is highly noisy (SNR = 1)
@@ -113,7 +88,7 @@ f = odl.solvers.IndicatorBox(forward_op.domain, 0, 1)
 # Create callback that prints current iterate value and displays every 20th
 # iterate.
 func = f + l2err * forward_op + lam * nuc_norm * pgradient
-callback = (odl.solvers.CallbackShow(display_step=20) &
+callback = (odl.solvers.CallbackShow() &
             odl.solvers.CallbackPrint(func=func))
 
 # Solve the problem. Here the parameters are chosen in order to ensure

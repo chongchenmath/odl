@@ -1,20 +1,3 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """L1-regularized denoising using the proximal gradient solvers.
 
 Solves the optimization problem
@@ -61,7 +44,7 @@ gamma = 0.01
 
 # Optionally pass callback to the solver to display intermediate results
 callback = (odl.solvers.CallbackPrintIteration() &
-            odl.solvers.CallbackShow(display_step=10))
+            odl.solvers.CallbackShow())
 
 # Run the algorithm (ISTA)
 x = space.zero()
@@ -79,4 +62,5 @@ odl.solvers.accelerated_proximal_gradient(
 # Display images
 data.show(title='Data')
 x.show(title='L1 regularized reconstruction')
-x_acc.show(title='L1 regularized reconstruction (accelerated)', show=True)
+x_acc.show(title='L1 regularized reconstruction (accelerated)',
+           force_show=True)

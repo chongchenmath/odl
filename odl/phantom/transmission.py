@@ -23,11 +23,11 @@ from future import standard_library
 standard_library.install_aliases()
 
 from odl.discr import DiscreteLp
-from odl.phantom.geometric import ellipse_phantom
+from odl.phantom.geometric import ellipsoid_phantom
 import numpy as np
 
 
-__all__ = ('shepp_logan_ellipses', 'shepp_logan', 'forbild')
+__all__ = ('shepp_logan_ellipsoids', 'shepp_logan', 'forbild')
 
 
 def _shepp_logan_ellipse_2d():
@@ -49,8 +49,8 @@ def _shepp_logan_ellipse_2d():
             [0.01, .0230, .0460, 0.0600, -.6050, 0]]
 
 
-def _shepp_logan_ellipse_3d():
-    """Return ellipse parameters for a 3d Shepp-Logan phantom.
+def _shepp_logan_ellipsoids_3d():
+    """Return ellipsoid parameters for a 3d Shepp-Logan phantom.
 
     This assumes that the ellipses are contained in the cube
     [-1, -1, -1]x[1, 1, 1].
@@ -68,8 +68,8 @@ def _shepp_logan_ellipse_3d():
             [0.01, .0230, .0460, .020, 0.0600, -.6050, 0.00, 0.0, 0, 0]]
 
 
-def _modified_shepp_logan_ellipses(ellipses):
-    """Modify ellipses to give the modified Shepp-Logan phantom.
+def _modified_shepp_logan_ellipsoids(ellipsoids):
+    """Modify ellipsoids to give the modified Shepp-Logan phantom.
 
     Works for both 2d and 3d.
     """
@@ -80,19 +80,19 @@ def _modified_shepp_logan_ellipses(ellipses):
     intensities[2] += 5e-17
     intensities[3] += 5e-17
 
-    assert len(ellipses) == len(intensities)
+    assert len(ellipsoids) == len(intensities)
 
-    for ellipse, intensity in zip(ellipses, intensities):
-        ellipse[0] = intensity
+    for ellipsoid, intensity in zip(ellipsoids, intensities):
+        ellipsoid[0] = intensity
 
 
-def shepp_logan_ellipses(ndim, modified=False):
-    """Ellipses for the standard `Shepp-Logan phantom`_ in 2 or 3 dimensions.
+def shepp_logan_ellipsoids(ndim, modified=False):
+    """Ellipsoids for the standard `Shepp-Logan phantom`_ in 2 or 3 dimensions.
 
     Parameters
     ----------
     ndim : {2, 3}
-        Dimension of the space the ellipses should be in.
+        Dimension of the space the ellipsoids should be in.
     modified : bool, optional
         True if the modified Shepp-Logan phantom should be given.
         The modified phantom has greatly amplified contrast to aid
@@ -100,25 +100,25 @@ def shepp_logan_ellipses(ndim, modified=False):
 
     See Also
     --------
-    odl.phantom.geometric.ellipse_phantom :
-        Function for creating arbitrary ellipse phantoms
-    shepp_logan : Create a phantom with these ellipses
+    odl.phantom.geometric.ellipsoids_phantom :
+        Function for creating arbitrary ellipsoids phantoms
+    shepp_logan : Create a phantom with these ellipsoids
 
     References
     ----------
     .. _Shepp-Logan phantom: en.wikipedia.org/wiki/Shepp–Logan_phantom
     """
     if ndim == 2:
-        ellipses = _shepp_logan_ellipse_2d()
+        ellipsoids = _shepp_logan_ellipse_2d()
     elif ndim == 3:
-        ellipses = _shepp_logan_ellipse_3d()
+        ellipsoids = _shepp_logan_ellipsoids_3d()
     else:
         raise ValueError('dimension not 2 or 3, no phantom available')
 
     if modified:
-        _modified_shepp_logan_ellipses(ellipses)
+        _modified_shepp_logan_ellipsoids(ellipsoids)
 
-    return ellipses
+    return ellipsoids
 
 
 def shepp_logan(space, modified=False):
@@ -128,6 +128,8 @@ def shepp_logan(space, modified=False):
     ----------
     space : `DiscreteLp`
         Space in which the phantom is created, must be 2- or 3-dimensional.
+        If ``space.shape`` is 1 in an axis, a corresponding slice of the
+        phantom is created.
     modified : `bool`, optional
         True if the modified Shepp-Logan phantom should be given.
         The modified phantom has greatly amplified contrast to aid
@@ -137,17 +139,17 @@ def shepp_logan(space, modified=False):
     --------
     forbild : Similar phantom but with more complexity. Only supports 2d.
     odl.phantom.geometric.defrise : Geometry test phantom
-    shepp_logan_ellipses : Get the parameters that define this phantom
-    odl.phantom.geometric.ellipse_phantom :
-        Function for creating arbitrary ellipse phantoms
+    shepp_logan_ellipsoids : Get the parameters that define this phantom
+    odl.phantom.geometric.ellipsoid_phantom :
+        Function for creating arbitrary ellipsoid phantoms
 
     References
     ----------
     .. _Shepp-Logan phantom: en.wikipedia.org/wiki/Shepp–Logan_phantom
     """
-    ellipses = shepp_logan_ellipses(space.ndim, modified)
+    ellipsoids = shepp_logan_ellipsoids(space.ndim, modified)
 
-    return ellipse_phantom(space, ellipses)
+    return ellipsoid_phantom(space, ellipsoids)
 
 
 def _analytical_forbild_phantom(resolution, ear):
@@ -251,11 +253,27 @@ def _analytical_forbild_phantom(resolution, ear):
     return phantomE, phantomC
 
 
-def forbild(space, resolution=False, ear=True):
+def forbild(space, resolution=False, ear=True, value_type='density',
+            scale='auto'):
     """Standard `FORBILD phantom` in 2 dimensions.
 
     The FORBILD phantom is intended for testing CT algorithms and is intended
     to be similar to a human head.
+
+    The phantom is defined using the following materials:
+
+    =========================  =====  ================
+    Material                   Index  Density (g/cm^3)
+    =========================  =====  ================
+    Air                        0      0.0000
+    Cerebrospinal fluid (CSF)  1      1.0450
+    Small less dense sphere    2      1.0475
+    Brain                      3      1.0500
+    Small more dense sphere    4      1.0525
+    Blood                      5      1.0550
+    Eyes                       6      1.0600
+    Bone                       7      1.8000
+    =========================  =====  ================
 
     Parameters
     ----------
@@ -266,6 +284,20 @@ def forbild(space, resolution=False, ear=True):
         If ``True``, insert a small resolution test pattern to the left.
     ear : bool, optional
         If ``True``, insert an ear-like structure to the right.
+    value_type : {'density', 'materials'}, optional
+        The format the phantom should be given in.
+        'density' returns floats in the range [0, 1.8] (g/cm^3)
+        'materials' returns indices in the range [0, 7].
+    scale : {'auto', 'cm', 'meters', 'mm'}, optional
+        Controls how ``space`` should be rescaled to fit the definition of
+        the forbild phantom, which is defined on the square
+        [-12.8, 12.8] x [-12.8, 12.8] cm.
+
+        * ``'auto'`` means that space is rescaled to fit exactly. The space is
+          also centered at [0, 0].
+        * ``'cm'`` means the dimensions of the space should be used as is.
+        * ``'m'`` means all dimensions of the space are multiplied by 100.
+        * ``'mm'`` means all dimensions of the space are divided by 10.
 
     Returns
     -------
@@ -287,7 +319,7 @@ def forbild(space, resolution=False, ear=True):
 
     if not isinstance(space, DiscreteLp):
         raise TypeError('`space` must be a `DiscreteLp`')
-    if not space.ndim == 2:
+    if space.ndim != 2:
         raise TypeError('`space` must be two-dimensional')
 
     # Create analytic description of phantom
@@ -296,10 +328,23 @@ def forbild(space, resolution=False, ear=True):
     # Rescale points to the default grid.
     # The forbild phantom is defined on [-12.8, 12.8] x [-12.8, 12.8]
     xcoord, ycoord = space.points().T
-    xcoord = (xcoord - np.min(xcoord)) / (np.max(xcoord) - np.min(xcoord))
-    xcoord = 25.8 * xcoord - 12.8
-    ycoord = (ycoord - np.min(ycoord)) / (np.max(ycoord) - np.min(ycoord))
-    ycoord = 25.8 * ycoord - 12.8
+    if scale == 'auto':
+        xcoord = ((xcoord - space.min_pt[0]) /
+                  (space.max_pt[0] - space.min_pt[0]))
+        xcoord = 25.8 * xcoord - 12.8
+        ycoord = ((ycoord - space.min_pt[1]) /
+                  (space.max_pt[1] - space.min_pt[1]))
+        ycoord = 25.8 * ycoord - 12.8
+    elif scale == 'cm':
+        pass  # dimensions already correct.
+    elif scale == 'm':
+        xcoord *= 100.0
+        ycoord *= 100.0
+    elif scale == 'mm':
+        xcoord /= 10.0
+        ycoord /= 10.0
+    else:
+        raise ValueError('unknown `scale` {}'.format(scale))
 
     # Compute the phantom values in each voxel
     image = np.zeros(space.size)
@@ -328,7 +373,28 @@ def forbild(space, resolution=False, ear=True):
 
         image[i] += f
 
-    return space.element(image)
+    if value_type == 'materials':
+        materials = np.zeros(space.size, dtype=space.dtype)
+        # csf
+        materials[(image > 1.043) & (image <= 1.047)] = 1
+        # less_dense_sphere
+        materials[(image > 1.047) & (image <= 1.048)] = 2
+        # brain
+        materials[(image > 1.048) & (image <= 1.052)] = 3
+        # denser_sphere
+        materials[(image > 1.052) & (image <= 1.053)] = 4
+        # blood
+        materials[(image > 1.053) & (image <= 1.058)] = 5
+        # eye
+        materials[(image > 1.058) & (image <= 1.062)] = 6
+        # Bone
+        materials[image > 1.75] = 7
+
+        return space.element(materials)
+    elif value_type == 'density':
+        return space.element(image)
+    else:
+        raise ValueError('unknown `value_type` {}'.format(value_type))
 
 
 if __name__ == '__main__':
@@ -340,6 +406,7 @@ if __name__ == '__main__':
     shepp_logan(discr, modified=True).show('shepp_logan 2d modified=True')
     shepp_logan(discr, modified=False).show('shepp_logan 2d modified=False')
     forbild(discr).show('FORBILD 2d', clim=[1.035, 1.065])
+    forbild(discr, value_type='materials').show('FORBILD 2d materials')
 
     # 3D
     discr = odl.uniform_discr([-1, -1, -1], [1, 1, 1], [300, 300, 300])

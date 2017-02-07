@@ -1,20 +1,3 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """Example using the ray transform with circular cone beam geometry."""
 
 import numpy as np
@@ -35,8 +18,8 @@ geometry = odl.tomo.CircularConeFlatGeometry(
     angle_partition, detector_partition, src_radius=1000, det_radius=100,
     axis=[1, 0, 0])
 
-# Ray transform (= forward projection). We use the ASTRA CUDA backend.
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cuda')
+# Ray transform (= forward projection).
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
 
 # Create a discrete Shepp-Logan phantom (modified version)
 phantom = odl.phantom.shepp_logan(reco_space, True)
@@ -49,8 +32,7 @@ proj_data = ray_trafo(phantom)
 backproj = ray_trafo.adjoint(proj_data)
 
 # Shows a slice of the phantom, projections, and reconstruction
-phantom.show(indices=np.s_[:, :, 150], title='Phantom, middle z slice')
-proj_data.show(indices=np.s_[0, :, :], title='Projection 0')
-proj_data.show(indices=np.s_[90, :, :], title='Projection 90')
-backproj.show(indices=np.s_[:, :, 150],
-              title='back-projection, middle z slice')
+phantom.show(coords=[None, None, 0], title='Phantom, middle z slice')
+proj_data.show(coords=[0, None, None], title='Projection at theta=0')
+proj_data.show(coords=[None, None, 0], title='Sinogram, middle slice')
+backproj.show(coords=[None, None, 0], title='Back-projection, middle z slice')

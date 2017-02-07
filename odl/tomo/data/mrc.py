@@ -212,6 +212,9 @@ class MRCHeaderProperties(object):
 
     """Mixin class adding MRC header-based properties to I/O classes."""
 
+    print_mrc2014_spec = staticmethod(print_mrc2014_spec)
+    print_fei_ext_header_spec = staticmethod(print_fei_ext_header_spec)
+
     @property
     def header_size(self):
         """Total size of `file`'s header (including extended) in bytes.
@@ -423,7 +426,7 @@ class MRCHeaderProperties(object):
             return labels[:nlabels]
 
 
-class FileReaderMRC(FileReaderRawBinaryWithHeader, MRCHeaderProperties):
+class FileReaderMRC(MRCHeaderProperties, FileReaderRawBinaryWithHeader):
 
     """Reader for the MRC file format.
 
@@ -471,11 +474,6 @@ class FileReaderMRC(FileReaderRawBinaryWithHeader, MRCHeaderProperties):
 
         super().__init__(file, header_fields)
 
-    print_mrc2014_spec = staticmethod(print_mrc2014_spec)
-    print_fei_ext_header_spec = staticmethod(print_fei_ext_header_spec)
-    data_storage_shape = MRCHeaderProperties.data_storage_shape
-    data_dtype = MRCHeaderProperties.data_dtype
-
     def read_extended_header(self, groupby='field', force_type=''):
         """Read the extended header according to `extended_header_type`.
 
@@ -489,7 +487,7 @@ class FileReaderMRC(FileReaderRawBinaryWithHeader, MRCHeaderProperties):
 
         Parameters
         ----------
-        groupby : {'field', 'section'}
+        groupby : {'field', 'section'}, optional
             How to group the values in the extended header sections.
 
             ``'field'`` : make an array per section field, e.g.::
@@ -636,7 +634,7 @@ extended-mrc-format-not-used-by-2dx
         return data
 
 
-class FileWriterMRC(FileWriterRawBinaryWithHeader, MRCHeaderProperties):
+class FileWriterMRC(MRCHeaderProperties, FileWriterRawBinaryWithHeader):
 
     """Writer for the MRC file format.
 
@@ -650,10 +648,6 @@ class FileWriterMRC(FileWriterRawBinaryWithHeader, MRCHeaderProperties):
     for electron cryo-microscopy and tomography*. Journal of Structural
     Biology, 129 (2015), pp 146--150.
     """
-
-    print_mrc2014_spec = staticmethod(print_mrc2014_spec)
-    data_storage_shape = MRCHeaderProperties.data_storage_shape
-    data_dtype = MRCHeaderProperties.data_dtype
 
     def write_data(self, data, dstart=None, swap_axes=True):
         """Write ``data`` to `file`.
@@ -744,7 +738,7 @@ def mrc_header_from_params(shape, dtype, kind, **kwargs):
         Version identifier for the MRC file, used for the ``'nversion'``
         header entry.
         Default: ``(2014, 0)``
-    text_labels : sequence of strings
+    text_labels : sequence of strings, optional
         Maximal 10 strings with 80 characters each, used for the
         ``'nlabl'`` and ``'label'`` header entries.
         Default: ``[]``

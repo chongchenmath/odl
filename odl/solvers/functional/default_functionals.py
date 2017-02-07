@@ -27,11 +27,10 @@ import numpy as np
 import scipy
 from numbers import Integral
 
-from odl.discr import PointwiseNorm
 from odl.solvers.functional.functional import Functional
 from odl.space import ProductSpace
 from odl.operator import (Operator, ConstantOperator, ZeroOperator,
-                          ScalingOperator, DiagonalOperator)
+                          ScalingOperator, DiagonalOperator, PointwiseNorm)
 from odl.solvers.functional.functional import (
     Functional, FunctionalDefaultConvexConjugate)
 from odl.solvers.nonsmooth.proximal_operators import (
@@ -49,7 +48,8 @@ __all__ = ('LpNorm', 'L1Norm', 'L2Norm', 'L2NormSquared',
            'KullbackLeiblerCrossEntropy', 'SeparableSum',
            'QuadraticForm',
            'NuclearNorm', 'IndicatorNuclearNormUnitBall',
-           'ScalingFunctional', 'IdentityFunctional')
+           'ScalingFunctional', 'IdentityFunctional',
+           'MoreauEnvelope')
 
 
 class LpNorm(Functional):
@@ -92,17 +92,17 @@ class LpNorm(Functional):
         if self.exponent == 0:
             return self.domain.one().inner(np.not_equal(x, 0))
         elif self.exponent == 1:
-            return x.ufunc.absolute().inner(self.domain.one())
+            return x.ufuncs.absolute().inner(self.domain.one())
         elif self.exponent == 2:
             return np.sqrt(x.inner(x))
         elif np.isfinite(self.exponent):
-            tmp = x.ufunc.absolute()
-            tmp.ufunc.power(self.exponent, out=tmp)
+            tmp = x.ufuncs.absolute()
+            tmp.ufuncs.power(self.exponent, out=tmp)
             return np.power(tmp.inner(self.domain.one()), 1 / self.exponent)
         elif self.exponent == np.inf:
-            return x.ufunc.absolute().ufunc.max()
+            return x.ufuncs.absolute().ufuncs.max()
         elif self.exponent == -np.inf:
-            return x.ufunc.absolute().ufunc.min()
+            return x.ufuncs.absolute().ufuncs.min()
         else:
             raise RuntimeError('unknown exponent')
 
@@ -152,7 +152,7 @@ class LpNorm(Functional):
 
                 def _call(self, x):
                     """Apply the gradient operator to the given point."""
-                    return x.ufunc.sign()
+                    return x.ufuncs.sign()
 
             return L1Gradient()
         elif self.exponent == 2:
@@ -393,7 +393,7 @@ class IndicatorGroupL1UnitBall(Functional):
 
     def _call(self, x):
         """Return ``self(x)``."""
-        x_norm = self.pointwise_norm(x).ufunc.max()
+        x_norm = self.pointwise_norm(x).ufuncs.max()
 
         if x_norm > 1:
             return np.inf
@@ -878,12 +878,12 @@ class IndicatorBox(Functional):
         # know x is inside the box.
         tmp = self.domain.element()
         if self.lower is not None and self.upper is None:
-            x.ufunc.maximum(self.lower, out=tmp)
+            x.ufuncs.maximum(self.lower, out=tmp)
         elif self.lower is None and self.upper is not None:
-            x.ufunc.minimum(self.upper, out=tmp)
+            x.ufuncs.minimum(self.upper, out=tmp)
         elif self.lower is not None and self.upper is not None:
-            x.ufunc.maximum(self.lower, out=tmp)
-            tmp.ufunc.minimum(self.upper, out=tmp)
+            x.ufuncs.maximum(self.lower, out=tmp)
+            tmp.ufuncs.minimum(self.upper, out=tmp)
         else:
             tmp.assign(x)
 
@@ -1190,7 +1190,7 @@ class KullbackLeiblerConvexConj(Functional):
         ----------
         space : `DiscreteLp` or `FnBase`
             Domain of the functional.
-        g : ``space`` `element-like`, optional
+        prior : ``space`` `element-like`, optional
             Data term, positive.
             Default: if None it is take as the one-element.
         """
@@ -1452,7 +1452,7 @@ class KullbackLeiblerCrossEntropyConvexConj(Functional):
         ----------
         space : `DiscreteLp` or `FnBase`
             Domain of the functional.
-        g : ``space`` `element-like`, optional
+        prior : ``space`` `element-like`, optional
             Data term, positive.
             Default: if None it is take as the one-element.
         """
@@ -1725,7 +1725,7 @@ class QuadraticForm(Functional):
     def gradient(self):
         """Gradient operator of the functional."""
         if self.operator is None:
-            return ConstantOperator(self.domain, self.vector)
+            return ConstantOperator(self.vector, self.domain)
         else:
             if not self.operator.is_linear:
                 # TODO: Acutally works otherwise, but needs more work
@@ -1756,12 +1756,33 @@ class QuadraticForm(Functional):
         .. math::
             (<x, Ax> + <b, x> + c)^* (x) =
             <(x - b), A^-1 (x - b)> - c =
-            <x , A^-1 x> - <x, A^-* b> - <x, A^-1 b> + <b, A^-1 b> - c
+            <x , A^-1 x> - <x, A^-* b> - <x, A^-1 b> + <b, A^-1 b> - c.
 
+        If the quadratic part of the functional is zero it is instead given
+        by a translated indicator function on zero, i.e., if
+
+        .. math::
+            f(x) = <b, x> + c,
+
+        then
+
+        .. math::
+            f^*(x^*) =
+            \\begin{cases}
+                -c & \\text{if } x^* = b \\\\
+                \\infty & \\text{else.}
+            \\end{cases}
+
+        See Also
+        --------
+        IndicatorZero
         """
         if self.operator is None:
-            # Everywhere infinite in this case
-            raise ValueError('convex conjugate not defined without operator')
+            tmp = IndicatorZero(space=self.domain, constant=-self.constant)
+            if self.vector is None:
+                return tmp
+            else:
+                return tmp.translated(self.vector)
 
         if self.vector is None:
             # Handle trivial case separately
@@ -2100,6 +2121,98 @@ class IndicatorNuclearNormUnitBall(Functional):
                                          self.domain,
                                          self.__norm.outernorm.exponent,
                                          self.__norm.pwisenorm.exponent)
+
+
+class MoreauEnvelope(Functional):
+
+    """Moreau envelope of a convex functional.
+
+    The Moreau envelope is a way to smooth an arbitrary convex functional
+    such that its gradient can be computed given the proximal of the original
+    functional.
+    The new functional has the same critical points as the original.
+    It is also called the Moreau-Yosida regularization.
+
+    Note that the only computable property of the Moreau envelope is the
+    gradient, the functional itself cannot be evaluated efficiently.
+
+    See `Proximal Algorithms`_ for more information.
+
+    Notes
+    -----
+    The Moreau envelope of a convex functional
+    :math:`f : \mathcal{X} \\rightarrow \mathbb{R}` multiplied by a scalar
+    :math:`\\sigma` is defined by
+
+    .. math::
+        \mathrm{env}_{\\sigma  f}(x) =
+        \\inf_{y \\in \\mathcal{X}}
+        \\left\{ \\frac{1}{2 \\sigma} \| x - y \|_2^2 + f(y) \\right\}
+
+    The gradient of the envelope is given by
+
+    .. math::
+        [\\nabla \mathrm{env}_{\\sigma  f}](x) =
+        \\frac{1}{\\sigma} (x - \mathrm{prox}_{\\sigma  f}(x))
+
+    Example: if :math:`f = \| \cdot \|_1`, then
+
+    .. math::
+        [\mathrm{env}_{\\sigma  \| \cdot \|_1}(x)]_i =
+        \\begin{cases}
+            \\frac{1}{2 \\sigma} x_i^2 & \\text{if } |x_i| \leq \\sigma \\\\
+            |x_i| - \\frac{\\sigma}{2} & \\text{if } |x_i| > \\sigma,
+        \\end{cases}
+
+    which is the usual Huber functional.
+
+    References
+    ----------
+    .. _Proximal Algorithms: \
+https://web.stanford.edu/~boyd/papers/pdf/prox_algs.pdf
+    """
+
+    def __init__(self, functional, sigma=1.0):
+        """Initialize an instance.
+
+        Parameters
+        ----------
+        functional : `Functional`
+            The functional ``f`` in the definition of the Moreau envelope that
+            is to be smoothed.
+        sigma : positive float, optional
+            The scalar ``sigma`` in the definition of the Moreau envelope.
+            Larger values mean stronger smoothing.
+
+        Examples
+        --------
+        Create smoothed l1 norm:
+
+        >>> space = odl.rn(3)
+        >>> l1_norm = odl.solvers.L1Norm(space)
+        >>> smoothed_l1 = MoreauEnvelope(l1_norm)
+        """
+        self.__functional = functional
+        self.__sigma = sigma
+        super().__init__(space=functional.domain,
+                         linear=False)
+
+    @property
+    def functional(self):
+        """The functional that has been regularized."""
+        return self.__functional
+
+    @property
+    def sigma(self):
+        """Regularization constant, larger means stronger regularization."""
+        return self.__sigma
+
+    @property
+    def gradient(self):
+        """The gradient operator."""
+        return (ScalingOperator(self.domain, 1 / self.sigma) -
+                (1 / self.sigma) * self.functional.proximal(self.sigma))
+
 
 if __name__ == '__main__':
     # pylint: disable=wrong-import-position

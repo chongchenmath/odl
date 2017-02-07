@@ -1,21 +1,4 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
-"""Example using FBP in prarallel 3D geometry using `fbp_op`.
+"""Example using FBP in parallel 3D geometry using `fbp_op`.
 
 We use a rotated geometry to demonstrate that the FBP still works as expected.
 """
@@ -46,8 +29,8 @@ geometry = odl.tomo.Parallel3dAxisGeometry(
 # --- Create Filtered Back-Projection (FBP) operator --- #
 
 
-# Ray transform (= forward projection). We use the ASTRA CUDA backend.
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cuda')
+# Ray transform (= forward projection).
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
 
 # Create FBP operator using utility function
 # We select a Hann filter, and only use the lowest 80% of frequencies to

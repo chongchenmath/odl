@@ -1,20 +1,3 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """Denoising using the Chambolle-Pock solver with TV & entropy-type data term.
 
 Solves the following optimization problem:
@@ -79,7 +62,7 @@ f = odl.solvers.SeparableSum(kl_divergence, l1_norm)
 
 # Optional: pass callback objects to solver
 callback = (odl.solvers.CallbackPrintIteration() &
-            odl.solvers.CallbackShow(display_step=20))
+            odl.solvers.CallbackShow(display_step=5))
 
 
 # --- Select solver parameters and solve using Chambolle-Pock --- #
@@ -100,4 +83,4 @@ odl.solvers.chambolle_pock_solver(
 # Display images
 orig.show(title='original image')
 noisy.show(title='noisy image')
-x.show(title='denoised', show=True)  # show and hold
+x.show(title='denoised', force_show=True)  # show and hold

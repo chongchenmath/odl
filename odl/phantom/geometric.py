@@ -24,7 +24,7 @@ standard_library.install_aliases()
 
 import numpy as np
 
-__all__ = ('cuboid', 'defrise', 'ellipse_phantom', 'indicate_proj_axis')
+__all__ = ('cuboid', 'defrise', 'ellipsoid_phantom', 'indicate_proj_axis')
 
 
 def cuboid(space, min_pt=None, max_pt=None):
@@ -123,7 +123,7 @@ def defrise(space, nellipses=8, alternating=False):
     ellipses = defrise_ellipses(space.ndim, nellipses=nellipses,
                                 alternating=alternating)
 
-    return ellipse_phantom(space, ellipses)
+    return ellipsoid_phantom(space, ellipses)
 
 
 def defrise_ellipses(ndim, nellipses=8, alternating=False):
@@ -142,9 +142,9 @@ def defrise_ellipses(ndim, nellipses=8, alternating=False):
 
     See Also
     --------
-    odl.phantom.geometric.ellipse_phantom :
-        Function for creating arbitrary ellipse phantoms
-    shepp_logan : Create a phantom with these ellipses
+    odl.phantom.geometric.ellipsoid_phantom :
+        Function for creating arbitrary ellipsoids phantoms
+    shepp_logan_ellipsoids
     """
     ellipses = []
     if ndim == 2:
@@ -192,7 +192,7 @@ def indicate_proj_axis(space, scale_structures=0.5):
     ----------
     space : `DiscretizedSpace`
         Discretized space in which the phantom is supposed to be created
-    scale_structures : positive float in (0, 1]
+    scale_structures : positive float in (0, 1], optional
         Scales objects (cube, cuboids)
 
     Returns
@@ -248,14 +248,14 @@ def indicate_proj_axis(space, scale_structures=0.5):
     # cube of size 2 * dx
     x0 = (cen - 3 * dx)[0]
     x, y, z = cen - 1 * dx
-    phan[x0:x, y:-y, z:-z] = 1
+    phan[int(x0):int(x), int(y):int(-y), int(z):int(-z)] = 1
 
     # 1st cuboid of size (dx[0], dx[1], 2 * dx[2])
     x0 = (cen + 1 * dx)[1]
     x1 = (cen + 2 * dx)[1]
     y0 = cen[1]
     z = (cen - dx)[2]
-    phan[x0:x1, y0:-y, z:-z] = 1
+    phan[int(x0):int(x1), int(y0):int(-y), int(z):int(-z)] = 1
 
     # 2nd cuboid of (dx[0], dx[1], 2 * dx[2]) touching the first diagonally
     # at a long edge
@@ -263,7 +263,7 @@ def indicate_proj_axis(space, scale_structures=0.5):
     x1 = (cen + 3 * dx)[1]
     y1 = cen[1]
     z = (cen - dx)[2]
-    phan[x0:x1, y:y1, z:-z] = 1
+    phan[int(x0):int(x1), int(y):int(y1), int(z):int(-z)] = 1
 
     return space.element(phan)
 
@@ -288,7 +288,8 @@ def _ellipse_phantom_2d(space, ellipses):
     Parameters
     ----------
     space : `DiscreteLp`
-        Space the phantom should be generated in.
+        Space the phantom should be generated in. If ``space.shape`` is
+        1 in an axis, a corresponding slice of the phantom is created.
     ellipses : list of lists
         Each row should contain:
         'value', 'axis_1', 'axis_2', 'center_x', 'center_y', 'rotation'
@@ -316,7 +317,10 @@ def _ellipse_phantom_2d(space, ellipses):
     grid = []
     for i in range(2):
         meani = (minp[i] + maxp[i]) / 2.0
-        diffi = (maxp[i] - minp[i]) / 2.0
+        # Where space.shape = 1, we have minp = maxp, so we set diffi = 1
+        # to avoid division by zero. Effectively, this allows constructing
+        # a slice of a 2D phantom.
+        diffi = (maxp[i] - minp[i]) / 2.0 or 1.0
         grid += [(grid_in[i] - meani) / diffi]
 
     for ellip in ellipses:
@@ -394,25 +398,26 @@ def _getshapes_3d(center, max_radius, shape):
     return idx, shapes
 
 
-def _ellipse_phantom_3d(space, ellipses):
-    """Create an ellipse phantom in 3d space.
+def _ellipsoid_phantom_3d(space, ellipsoids):
+    """Create an ellipsoid phantom in 3d space.
 
     Parameters
     ----------
     space : `DiscreteLp`
-        Space the phantom should be generated in.
-    ellipses : list of lists
+        Space the phantom should be generated in. If ``space.shape`` is
+        1 in an axis, a corresponding slice of the phantom is created.
+    ellipsoids : list of lists
         Each row should contain:
         'value', 'axis_1', 'axis_2', 'axis_3',
         'center_x', 'center_y', 'center_z',
         'rotation_phi', 'rotation_theta', 'rotation_psi'
-        The ellipses should be contained the he rectangle
+        The ellipsoids should be contained in the rectangle
         [-1, -1, -1] x [1, 1, 1].
 
     Returns
     -------
     phantom : ``space`` element
-        3D ellipse phantom in ``space``.
+        3D ellipsoid phantom in ``space``.
 
     See Also
     --------
@@ -431,10 +436,13 @@ def _ellipse_phantom_3d(space, ellipses):
     grid = []
     for i in range(3):
         meani = (minp[i] + maxp[i]) / 2.0
-        diffi = (maxp[i] - minp[i]) / 2.0
+        # Where space.shape = 1, we have minp = maxp, so we set diffi = 1
+        # to avoid division by zero. Effectively, this allows constructing
+        # a slice of a 3D phantom.
+        diffi = (maxp[i] - minp[i]) / 2.0 or 1.0
         grid += [(grid_in[i] - meani) / diffi]
 
-    for ellip in ellipses:
+    for ellip in ellipsoids:
         assert len(ellip) == 10
 
         intensity = ellip[0]
@@ -510,14 +518,16 @@ def _ellipse_phantom_3d(space, ellipses):
     return space.element(p)
 
 
-def ellipse_phantom(space, ellipses):
-    """Return a phantom given by ellipses.
+def ellipsoid_phantom(space, ellipsoids):
+    """Return a phantom given by ellipsoids.
 
     Parameters
     ----------
     space : `DiscreteLp`
         Space in which the phantom is created, must be 2- or 3-dimensional.
-    ellipses : sequence of sequences
+        If ``space.shape`` is 1 in an axis, a corresponding slice of the
+        phantom is created.
+    ellipsoids : sequence of sequences
         If ``space`` is 2-dimensional each row should contain:
 
         'value', 'axis_1', 'axis_2', 'center_x', 'center_y', 'rotation'
@@ -528,7 +538,7 @@ def ellipse_phantom(space, ellipses):
         'center_x', 'center_y', 'center_z',
         'rotation_phi', 'rotation_theta', 'rotation_psi'
 
-        The ellipses need to be given such that the ellipses fall in the
+        The ellipsoids need to be given such that the ellipsoids fall in the
         rectangle [-1, -1] x [1, 1] or equivalent in 3d.
 
     Notes
@@ -557,7 +567,7 @@ def ellipse_phantom(space, ellipses):
     >>> space = odl.uniform_discr([-1, -1], [1, 1], [5, 5])
     >>> ellipses = [[1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
     ...             [1.0, 0.6, 0.6, 0.0, 0.0, 0.0]]
-    >>> print(ellipse_phantom(space, ellipses))
+    >>> print(ellipsoid_phantom(space, ellipses))
     [[0.0, 0.0, 1.0, 0.0, 0.0],
      [0.0, 1.0, 2.0, 1.0, 0.0],
      [1.0, 2.0, 2.0, 2.0, 1.0],
@@ -575,9 +585,9 @@ def ellipse_phantom(space, ellipses):
     """
 
     if space.ndim == 2:
-        return _ellipse_phantom_2d(space, ellipses)
+        return _ellipse_phantom_2d(space, ellipsoids)
     elif space.ndim == 3:
-        return _ellipse_phantom_3d(space, ellipses)
+        return _ellipsoid_phantom_3d(space, ellipsoids)
     else:
         raise ValueError('dimension not 2 or 3, no phantom available')
 
@@ -597,19 +607,21 @@ if __name__ == '__main__':
     # cuboid 3D
     discr = odl.uniform_discr([-1, -1, -1], [1, 1, 1], [300, 300, 300])
     cuboid(discr).show('cuboid 3d')
+
+    # Indicate proj axis 3D
     indicate_proj_axis(discr).show('indicate_proj_axis 3d')
 
-    # ellipse phantom 2D
+    # ellipsoid phantom 2D
     discr = odl.uniform_discr([-1, -1], [1, 1], [300, 300])
     ellipses = [[1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
                 [1.0, 0.6, 0.6, 0.0, 0.0, 0.0]]
-    ellipse_phantom(discr, ellipses).show('ellipse phantom 2d')
+    ellipsoid_phantom(discr, ellipses).show('ellipse phantom 2d')
 
-    # ellipse phantom 3D
+    # ellipsoid phantom 3D
     discr = odl.uniform_discr([-1, -1, -1], [1, 1, 1], [300, 300, 300])
-    ellipses = [[1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                [1.0, 0.6, 0.6, 0.6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
-    ellipse_phantom(discr, ellipses).show('ellipse phantom 3d')
+    ellipsoids = [[1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                  [1.0, 0.6, 0.6, 0.6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+    ellipsoid_phantom(discr, ellipsoids).show('ellipse phantom 3d')
 
     # Defrise phantom 2D
     discr = odl.uniform_discr([-1, -1], [1, 1], [300, 300])

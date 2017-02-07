@@ -45,9 +45,12 @@ def _default_call_out_of_place(op, x, **kwargs):
 
     Parameters
     ----------
-    x : `domain` element
-        An object in the operator domain. The operator is applied
-        to it.
+    op : `Operator`
+        Operator to call
+    x : ``op.domain`` element
+        Point in which to call the operator.
+    kwargs:
+        Optional arguments to the operator.
 
     Returns
     -------
@@ -65,17 +68,15 @@ def _default_call_in_place(op, x, out, **kwargs):
 
     Parameters
     ----------
-    x : `domain` element
-        An object in the operator domain. The operator is applied
-        to it.
-
-    out : `range` element
+    op : `Operator`
+        Operator to call
+    x : ``op.domain`` element
+        Point in which to call the operator.
+    out : ``op.range`` element
         An object in the operator range. The result of an operator
-        evaluation.
-
-    Returns
-    -------
-    None
+        evaluation is written here.
+    kwargs:
+        Optional arguments to the operator.
     """
     out.assign(op.range.element(op._call_out_of_place(x, **kwargs)))
 
@@ -168,9 +169,9 @@ def _dispatch_call_args(cls=None, bound_call=None, unbound_call=None,
     cls : `class`, optional
         The ``_call()`` method of this class is checked. If omitted,
         provide ``unbound_call`` instead to check directly.
-    bound_call: callable, optional
+    bound_call : callable, optional
         Check this bound method instead of ``cls``
-    unbound_call: callable, optional
+    unbound_call : callable, optional
         Check this unbound function instead of ``cls``
     attr : string, optional
         Check this attribute instead of ``_call``, e.g. ``__call__``
@@ -450,7 +451,7 @@ class Operator(object):
         range : `Set`
             The range of this operator, i.e., the set this operator
             maps to
-        linear : bool
+        linear : bool, optional
             If ``True``, the operator is considered as linear. In this
             case, ``domain`` and ``range`` have to be instances of
             `LinearSpace`, or `Field`.
@@ -728,9 +729,18 @@ class Operator(object):
         else:
             return NotImplemented
 
+    def __radd__(self, other):
+        """Return ``other + self``."""
+        # Use commutativity
+        return self + other
+
     def __sub__(self, other):
         """Return ``self - other``."""
         return self + (-1) * other
+
+    def __rsub__(self, other):
+        """Return ``other - self``."""
+        return (-1) * self + other
 
     def __mul__(self, other):
         """Return ``self * other``.
@@ -1112,8 +1122,12 @@ class OperatorSum(Operator):
         x : `domain` `element-like`
             Evaluation point of the derivative
         """
-        return OperatorSum(self.left.derivative(x), self.right.derivative(x),
-                           self.__tmp_dom, self.__tmp_ran)
+        if self.is_linear:
+            return self
+        else:
+            return OperatorSum(self.left.derivative(x),
+                               self.right.derivative(x),
+                               self.__tmp_dom, self.__tmp_ran)
 
     @property
     def adjoint(self):
@@ -1328,11 +1342,14 @@ class OperatorComp(Operator):
             Evaluation point of the derivative. Needs to be usable as
             input for the ``right`` operator.
         """
-        left_deriv = self.left.derivative(self.right(x))
-        right_deriv = self.right.derivative(x)
+        if self.is_linear:
+            return self
+        else:
+            left_deriv = self.left.derivative(self.right(x))
+            right_deriv = self.right.derivative(x)
 
-        return OperatorComp(left_deriv, right_deriv,
-                            self.__tmp)
+            return OperatorComp(left_deriv, right_deriv,
+                                self.__tmp)
 
     @property
     def adjoint(self):
@@ -1420,6 +1437,15 @@ class OperatorPointwiseProduct(Operator):
             self.left(x, out=out)
             self.right(x, out=tmp)
             out *= tmp
+
+    def derivative(self, x):
+        """Return the derivative at ``x``."""
+        if self.is_linear:
+            return self
+        else:
+            left = self.right(x) * self.left.derivative(x)
+            right = self.left(x) * self.right.derivative(x)
+            return left + right
 
     def __repr__(self):
         """Return ``repr(self)``."""
@@ -1852,8 +1878,11 @@ class FunctionalLeftVectorMult(Operator):
         -------
         derivative : `FunctionalLeftVectorMult`
         """
-        return FunctionalLeftVectorMult(self.functional.derivative(x),
-                                        self.vector)
+        if self.is_linear:
+            return self
+        else:
+            return FunctionalLeftVectorMult(self.functional.derivative(x),
+                                            self.vector)
 
     @property
     def adjoint(self):
@@ -1956,7 +1985,10 @@ class OperatorLeftVectorMult(Operator):
         --------
         OperatorLeftVectorMult : the result
         """
-        return self.vector * self.operator.derivative(x)
+        if self.is_linear:
+            return self
+        else:
+            return self.vector * self.operator.derivative(x)
 
     @property
     def adjoint(self):
@@ -2008,8 +2040,8 @@ class OperatorRightVectorMult(Operator):
 
         Parameters
         ----------
-        op : `Operator`
-            The domain of ``op`` must be a ``vector.space``.
+        operator : `Operator`
+            The domain of ``operator`` must be a ``vector.space``.
         vector : ``op.domain`` element
             The fixed element to multiply with.
         """
@@ -2069,7 +2101,10 @@ class OperatorRightVectorMult(Operator):
         --------
         OperatorRightVectorMult : the result
         """
-        return self.operator.derivative(x) * self.vector
+        if self.is_linear:
+            return self
+        else:
+            return self.operator.derivative(x) * self.vector
 
     @property
     def adjoint(self):

@@ -1,29 +1,13 @@
-# Copyright 2014-2016 The ODL development group
-#
-# This file is part of ODL.
-#
-# ODL is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# ODL is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
-
 """
-Example using a filtered back-projection in 2d using the ray transform and a
-ramp filter. The ramp filter is implemented in fourier space.
+Example creating a filtered back-projection in 2d using the ray transform and a
+ramp filter. The ramp filter is implemented in Fourier space.
 
 See https://en.wikipedia.org/wiki/Radon_transform#Inversion_formulas for
 more information.
 
 Also note that ODL has a utility function, `fbp_op` that can be used to perform
-filtered back-projection.
+filtered back-projection, and that this example is intended to show how this
+could be implemented by hand using ODL.
 """
 
 import numpy as np
@@ -51,8 +35,8 @@ geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 # --- Create Filtered Back-Projection (FBP) operator --- #
 
 
-# Ray transform (= forward projection). We use the ASTRA CUDA backend.
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cuda')
+# Ray transform (= forward projection).
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
 
 # Fourier transform in detector direction
 fourier = odl.trafos.FourierTransform(ray_trafo.range, axes=[1])

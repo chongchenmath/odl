@@ -29,12 +29,12 @@ import numpy as np
 from odl.operator.operator import Operator, _dispatch_call_args
 from odl.set import (RealNumbers, ComplexNumbers, Set, Field, LinearSpace,
                      LinearSpaceElement)
-from odl.util.utility import (is_real_dtype, is_complex_floating_dtype,
-                              preload_first_arg, dtype_repr,
-                              complex_dtype, real_dtype)
-from odl.util.vectorization import (
+from odl.util import (
+    is_real_dtype, is_complex_floating_dtype, dtype_repr,
+    complex_dtype, real_dtype,
     is_valid_input_array, is_valid_input_meshgrid,
     out_shape_from_array, out_shape_from_meshgrid, vectorize)
+from odl.util.utility import preload_first_arg
 
 
 __all__ = ('FunctionSet', 'FunctionSetElement',
@@ -133,17 +133,17 @@ class FunctionSet(Set):
         """
         return self.__out_dtype
 
-    def element(self, fcall=None, vectorized=True):
+    def element(self, fcall, vectorized=True):
         """Create a `FunctionSet` element.
 
         Parameters
         ----------
-        fcall : callable, optional
+        fcall : callable
             The actual instruction for out-of-place evaluation.
             It must return a `FunctionSet.range` element or a
             `numpy.ndarray` of such (vectorized call).
 
-        vectorized : bool
+        vectorized : bool, optional
             Whether ``fcall`` supports vectorized evaluation.
 
         Returns
@@ -153,7 +153,7 @@ class FunctionSet(Set):
 
         See Also
         --------
-        odl.discr.grid.TensorGrid.meshgrid : efficient grids for function
+        odl.discr.grid.RectGrid.meshgrid : efficient grids for function
             evaluation
         """
         if not callable(fcall):
@@ -178,10 +178,15 @@ class FunctionSet(Set):
         if other is self:
             return True
 
-        return (isinstance(other, FunctionSet) and
+        return (isinstance(other, type(self)) and
+                isinstance(self, type(other)) and
                 self.domain == other.domain and
                 self.range == other.range and
                 self.out_dtype == other.out_dtype)
+
+    def __hash__(self):
+        """Return ``hash(self)``."""
+        return hash((type(self), self.domain, self.range, self.out_dtype))
 
     def __contains__(self, other):
         """Return ``other in self``.
@@ -318,7 +323,7 @@ class FunctionSetElement(Operator):
 
         Other Parameters
         ----------------
-        bounds_check : bool
+        bounds_check : bool, optional
             If ``True``, check if all input points lie in the function
             domain in the case of vectorized evaluation. This requires
             the domain to implement `Set.contains_all`.
@@ -637,7 +642,7 @@ class FunctionSpace(FunctionSet, LinearSpace):
             If fcall is a `FunctionSetElement`, it is wrapped
             as a new `FunctionSpaceElement`.
 
-        vectorized : bool
+        vectorized : bool, optional
             Whether ``fcall`` supports vectorized evaluation.
 
         Returns
@@ -712,22 +717,6 @@ class FunctionSpace(FunctionSet, LinearSpace):
                 out.fill(1)
 
         return self.element_type(self, one_vec)
-
-    def __eq__(self, other):
-        """Return ``self == other``.
-
-        Returns
-        -------
-        equals : bool
-            ``True`` if ``other`` is a `FunctionSpace` with same
-            `FunctionSpace.domain` and `FunctionSpace.range`,
-            ``False`` otherwise.
-        """
-        if other is self:
-            return True
-
-        return (isinstance(other, FunctionSpace) and
-                FunctionSet.__eq__(self, other))
 
     def _astype(self, out_dtype):
         """Internal helper for ``astype``."""

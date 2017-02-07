@@ -131,27 +131,27 @@ def shepp_logan_ellipse_2d_template():
 #            [0.01, .0230, .0230, 0.0000, -.6060, 0],
 #            [0.01, .0230, .0460, 0.0600, -.6050, 0]]
     #       value  axisx  axisy     x       y  rotation           
-#    # Shepp-Logan region of interest
-#    return [[2.00, .6900, .9200, 0.0000, 0.0000, 0],
-#            [-.98, .6624, .8740, 0.0000, -.0184, 0],
-#            [-.02, .1400, .1400, 0.2200, 0.0000, -18],
-#            [-.02, .1600, .4100, -.2200, 0.0000, 18],
-#            [0.01, .2100, .2500, 0.0000, 0.3500, 0],
-#            [0.01, .0460, .0460, 0.0000, 0.1000, 0],
-#            [0.01, .0460, .0460, 0.0000, -.1000, 0],
-#            [0.01, .0460, .0230, -.0800, -.6050, 0],
-#            [0.01, .0230, .0230, 0.0000, -.6060, 0],
-#            [0.01, .0230, .0460, 0.0600, -.6050, 0]]
-    return [[2.00, .6000, .6000, 0.0000, 0.1200, 0],
-            [-.98, .5624, .5640, 0.0000, -.0184 + 0.12, 0],
-            [-.02, .1100, .1100, 0.2600, 0.1500, -18],
-            [-.02, .1300, .1300, -.2500, 0.2000, 18],
-            [0.01, .1650, .1650, 0.0000, 0.3000, 0],
-            [0.01, .0300, .0300, 0.0000, 0.1400, 0],
-            [0.01, .0300, .0300, -.1400, 0.1000, 0],
-            [0.01, .0360, .0230, -.0770, -.2050, 0],
-            [0.01, .0230, .0230, 0.0000, -.2060, 0],
-            [0.01, .0230, .0360, 0.0600, -.2050, 0]] 
+    # Shepp-Logan region of interest
+    return [[2.00, .6900, .9200, 0.0000, 0.0000, 0],
+            [-.98, .6624, .8740, 0.0000, -.0184, 0],
+            [-.02, .1400, .1400, 0.2200, 0.0000, -18],
+            [-.02, .1600, .4100, -.2200, 0.0000, 18],
+            [0.01, .2100, .2500, 0.0000, 0.3500, 0],
+            [0.01, .0460, .0460, 0.0000, 0.1000, 0],
+            [0.01, .0460, .0460, 0.0000, -.1000, 0],
+            [0.01, .0460, .0230, -.0800, -.6050, 0],
+            [0.01, .0230, .0230, 0.0000, -.6060, 0],
+            [0.01, .0230, .0460, 0.0600, -.6050, 0]]
+#    return [[2.00, .6000, .6000, 0.0000, 0.1200, 0],
+#            [-.98, .5624, .5640, 0.0000, -.0184 + 0.12, 0],
+#            [-.02, .1100, .1100, 0.2600, 0.1500, -18],
+#            [-.02, .1300, .1300, -.2500, 0.2000, 18],
+#            [0.01, .1650, .1650, 0.0000, 0.3000, 0],
+#            [0.01, .0300, .0300, 0.0000, 0.1400, 0],
+#            [0.01, .0300, .0300, -.1400, 0.1000, 0],
+#            [0.01, .0360, .0230, -.0770, -.2050, 0],
+#            [0.01, .0230, .0230, 0.0000, -.2060, 0],
+#            [0.01, .0230, .0360, 0.0600, -.2050, 0]] 
 
 #template = shepp_logan_2d(space, modified=True)
 #template.show('template')
@@ -186,10 +186,6 @@ def shepp_logan_ellipses(ndim, modified=False):
     --------
     ellipse_phantom : Function for creating arbitrary ellipse phantoms
     shepp_logan : Create a phantom with these ellipses
-
-    References
-    ----------
-    .. _Shepp-Logan phantom: en.wikipedia.org/wiki/Shepp–Logan_phantom
     """
     if ndim == 2:
         ellipses = shepp_logan_ellipse_2d_template()
@@ -218,10 +214,6 @@ def shepp_logan_2d(space, modified=False):
     --------
     shepp_logan_ellipses : Get the parameters that define this phantom
     ellipse_phantom : Function for creating arbitrary ellipse phantoms
-
-    References
-    ----------
-    .. Shepp-Logan phantom: en.wikipedia.org/wiki/Shepp–Logan_phantom
     """
     ellipses = shepp_logan_ellipses(space.ndim, modified)
 
@@ -330,7 +322,23 @@ def LDDMM_gradient_descent_scheme_solver(gradS, I, time_pts, niter, eps,
     
                 vector_fields[i] = (vector_fields[i] - eps * (
                     lamb * vector_fields[i] - tmp3)).copy()
-
+    
+            # Update image_N0 and detDphi_N1
+            for i in range(N):
+                # Update image_N0[i+1] by image_N0[i] and vector_fields[i+1]
+                image_N0[i+1] = image_domain.element(
+                    _linear_deform(image_N0[i],
+                                   -inv_N * vector_fields[i+1])).copy()
+                # Update detDphi_N1[N-i-1] by detDphi_N1[N-i]
+                jacobian_det = image_domain.element(
+                    np.exp(inv_N * div_op(vector_fields[N-i-1]))).copy()
+                detDphi_N1[N-i-1] = (
+                    jacobian_det * image_domain.element(_linear_deform(
+                        detDphi_N1[N-i], inv_N * vector_fields[N-i-1]))).copy()
+            
+            # Update the deformed template
+            PhiStarI = image_N0[N].copy()
+    
             # Show intermediate result
             if callback is not None:
                 callback(PhiStarI)
@@ -359,7 +367,25 @@ def LDDMM_gradient_descent_scheme_solver(gradS, I, time_pts, niter, eps,
     
                 vector_fields[i] = (vector_fields[i] - eps * (
                     lamb * vector_fields[i] + tmp3)).copy()
+
+            # Update image_N0 and detDphi_N1
+            for i in range(N):
+                # Update image_N0[i+1] by image_N0[i] and vector_fields[i+1]
+                image_N0[i+1] = image_domain.element(
+                    _linear_deform(image_N0[i], -inv_N * vector_fields[i+1])
+                    ).copy()
+                # Update detDphi_N0[i+1] by detDphi_N0[i]
+                jacobian_det = image_domain.element(
+                    np.exp(-inv_N * div_op(vector_fields[i+1]))).copy()
+                detDphi_N0[i+1] = (jacobian_det * image_domain.element(
+                    _linear_deform(detDphi_N0[i],
+                                   -inv_N * vector_fields[i+1]))).copy()
+                mp_deformed_image_N0[i+1] = (image_N0[i+1] *
+                    detDphi_N0[i+1]).copy()
             
+            # Update the deformed template
+            PhiStarI = mp_deformed_image_N0[N].copy()
+    
             # Show intermediate result
             if callback is not None:
                 callback(PhiStarI)
@@ -378,18 +404,20 @@ def LDDMM_gradient_descent_scheme_solver(gradS, I, time_pts, niter, eps,
 # Give input images
 #I0name = './pictures/c_highres.png'
 #I1name = './pictures/i_highres.png'
-#I0name = './pictures/DS0003AxialSlice80.png'
-#I1name = './pictures/DS0002AxialSlice80.png'
+I0name = './pictures/DS0003AxialSlice80.png' # 256 * 256, I0[:,:,1]
+I1name = './pictures/DS0002AxialSlice80.png'
 #I0name = './pictures/hand5.png'
 #I1name = './pictures/hand3.png'
-I0name = './pictures/handnew1.png'
-I1name = './pictures/handnew2.png'
+#I0name = './pictures/handnew1.png'
+#I1name = './pictures/handnew2.png'
 #I0name = './pictures/v.png'
 #I1name = './pictures/j.png'
 #I0name = './pictures/ImageHalf058.png'
 #I1name = './pictures/ImageHalf059.png'
 #I0name = './pictures/ImageHalf068.png'
 #I1name = './pictures/ImageHalf069.png'
+#I0name = './pictures/ss_save.png' # 438 * 438
+#I1name = './pictures/ss_save_1.png'
 
 # Get digital images
 #I0 = np.rot90(plt.imread(I0name).astype('float'), -1)[::2, ::2]
@@ -435,13 +463,13 @@ padded_ft_fit_op = padded_ft_op(space, padded_size)
 vectorial_ft_fit_op = DiagonalOperator(*([padded_ft_fit_op] * space.ndim))
 
 # Fix the sigma parameter in the kernel
-sigma = 2.5
+sigma = 2.0
 
 # Compute the FT of kernel in fitting term
 ft_kernel_fitting = fitting_kernel_ft(kernel)
 
 # Maximum iteration number
-niter = 1600
+niter = 1000
 
 # Implementation method for mass preserving or not,
 # impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
@@ -451,7 +479,7 @@ impl1 = 'mp'
 # Implementation method for image matching or image reconstruction,
 # impl chooses 'matching' or 'reconstruction', 'matching' means image matching,
 # 'reconstruction' means image reconstruction
-impl2 = 'matching'
+impl2 = 'reconstruction'
 
 # Normalize the template's density as the same as the ground truth if consider
 # mass preserving method
@@ -471,7 +499,7 @@ template.show('template')
 # For image reconstruction
 if impl2 == 'reconstruction':
     # Give step size for solver
-    eps = 0.005
+    eps = 0.05
 
     # Give regularization parameter
     lamb = 0.0000001
@@ -500,7 +528,7 @@ if impl2 == 'reconstruction':
     proj_data = op(ground_truth)
 
     # Add white Gaussion noise onto the noiseless data
-    noise = 0.0 * white_noise(op.range)
+    noise = 0.1 * white_noise(op.range)
 
     # Add white Gaussion noise from file
     # noise = op.range.element(np.load('noise_20angles.npy'))
@@ -512,15 +540,15 @@ if impl2 == 'reconstruction':
     #noise_proj_data = op.range.element(
     #    np.load('noise_proj_data_20angles_snr_4_98.npy'))
 
-    # --- Create FilteredBackProjection (FBP) operator --- #    
-    # Create FBP operator
-    FBP = fbp_op(op, padding=True, filter_type='Hamming',
-                 frequency_scaling=0.8)
-    # Calculate filtered backprojection of data             
-    fbp_reconstruction = FBP(proj_data)
-    
-    # Shows result of FBP reconstruction
-    fbp_reconstruction.show(title='Filtered backprojection')
+#    # --- Create FilteredBackProjection (FBP) operator --- #    
+#    # Create FBP operator
+#    FBP = fbp_op(op, padding=True, filter_type='Hamming',
+#                 frequency_scaling=0.8)
+#    # Calculate filtered backprojection of data             
+#    fbp_reconstruction = FBP(proj_data)
+#    
+#    # Shows result of FBP reconstruction
+#    fbp_reconstruction.show(title='Filtered backprojection')
 
     # Compute the signal-to-noise ratio in dB
     snr = snr(proj_data, noise, impl='dB')
@@ -561,29 +589,29 @@ if impl2 == 'reconstruction':
     
     plt.subplot(3, 3, 2)
     plt.imshow(np.rot90(rec_result_1), cmap='bone',
-               vmin=np.asarray(rec_result_1).min(),
-               vmax=np.asarray(rec_result_1).max()) 
-    plt.colorbar()
-    plt.title('time_pts = {!r}'.format(2))
-
-    plt.subplot(3, 3, 3)
-    plt.imshow(np.rot90(rec_result_2), cmap='bone',
-               vmin=np.asarray(rec_result_2).min(),
-               vmax=np.asarray(rec_result_2).max()) 
+               vmin=np.asarray(ground_truth).min(),
+               vmax=np.asarray(ground_truth).max()) 
     plt.colorbar()
     plt.title('time_pts = {!r}'.format(5))
 
+    plt.subplot(3, 3, 3)
+    plt.imshow(np.rot90(rec_result_2), cmap='bone',
+               vmin=np.asarray(ground_truth).min(),
+               vmax=np.asarray(ground_truth).max()) 
+    plt.colorbar()
+    plt.title('time_pts = {!r}'.format(10))
+
     plt.subplot(3, 3, 4)
     plt.imshow(np.rot90(rec_result_3), cmap='bone',
-               vmin=np.asarray(rec_result_3).min(),
-               vmax=np.asarray(rec_result_3).max()) 
+               vmin=np.asarray(ground_truth).min(),
+               vmax=np.asarray(ground_truth).max()) 
     plt.colorbar()
-    plt.title('time_pts = {!r}'.format(8))
+    plt.title('time_pts = {!r}'.format(15))
 
     plt.subplot(3, 3, 5)
     plt.imshow(np.rot90(rec_result), cmap='bone',
-               vmin=np.asarray(rec_result).min(),
-               vmax=np.asarray(rec_result).max()) 
+               vmin=np.asarray(ground_truth).min(),
+               vmax=np.asarray(ground_truth).max()) 
     plt.colorbar()
     plt.title('Reconstructed image by {!r} iters, '
         '{!r} projs'.format(niter, num_angles))
@@ -598,7 +626,7 @@ if impl2 == 'reconstruction':
     plt.subplot(3, 3, 7)
     plt.plot(np.asarray(proj_data)[0], 'b', np.asarray(noise_proj_data)[0],
              'r', np.asarray(rec_proj_data)[0], 'g'), 
-    plt.axis([0, 181, -3, 10]), plt.grid(True)
+    plt.axis([0, 361, -1, 17]), plt.grid(True)
 #    plt.title('$\Theta=0^\circ$, b: truth, r: noisy, '
 #        'g: rec_proj, SNR = {:.3}dB'.format(snr))
 #    plt.gca().axes.yaxis.set_ticklabels([])
@@ -606,14 +634,14 @@ if impl2 == 'reconstruction':
     plt.subplot(3, 3, 8)
     plt.plot(np.asarray(proj_data)[2], 'b', np.asarray(noise_proj_data)[2],
              'r', np.asarray(rec_proj_data)[2], 'g'),
-    plt.axis([0, 181, -3, 10]), plt.grid(True)
+    plt.axis([0, 361, -1, 17]), plt.grid(True)
 #    plt.title('$\Theta=90^\circ$')
 #    plt.gca().axes.yaxis.set_ticklabels([])
 
     plt.subplot(3, 3, 9)
     plt.plot(np.asarray(proj_data)[4], 'b', np.asarray(noise_proj_data)[4],
              'r', np.asarray(rec_proj_data)[4], 'g'),
-    plt.axis([0, 181, -3, 10]), plt.grid(True)
+    plt.axis([0, 361, -1, 17]), plt.grid(True)
 #    plt.title('$\Theta=162^\circ$')
 #    plt.gca().axes.yaxis.set_ticklabels([])
 
@@ -647,7 +675,7 @@ if impl2 == 'matching':
     gradS = op.adjoint * (op - noise_data)
 
     # Give the number of time intervals
-    time_itvs = 10
+    time_itvs = 20
 
     # Compute by LDDMM solver
     image_N0 = LDDMM_gradient_descent_scheme_solver(

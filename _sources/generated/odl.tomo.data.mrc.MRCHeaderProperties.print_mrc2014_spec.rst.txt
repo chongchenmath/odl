@@ -1,0 +1,8 @@
+:orphan:
+
+MRCHeaderProperties.print_mrc2014_spec
+========================================================
+
+.. currentmodule:: odl.tomo.data.mrc
+
+.. automethod:: MRCHeaderProperties.print_mrc2014_spec

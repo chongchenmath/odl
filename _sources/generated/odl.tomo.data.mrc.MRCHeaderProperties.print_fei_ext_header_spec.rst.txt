@@ -1,0 +1,8 @@
+:orphan:
+
+MRCHeaderProperties.print_fei_ext_header_spec
+===============================================================
+
+.. currentmodule:: odl.tomo.data.mrc
+
+.. automethod:: MRCHeaderProperties.print_fei_ext_header_spec

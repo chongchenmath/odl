@@ -49,7 +49,7 @@ class MultiplyAndSquareOp(Operator):
             out **= 2
 
     def derivative(self, x):
-        return 2 * odl.MatVecOperator(self.matrix)
+        return 2 * odl.MatrixOperator(self.matrix)
 
     def __str__(self):
         return "MaS: " + str(self.matrix) + " ** 2"

@@ -6,10 +6,12 @@ import numpy as np
 
 from odl.tomo.data import (FileReaderMRC, FileWriterMRC,
                            mrc_header_from_params)
+from odl.tomo import Parallel2dGeometry, RayTransform, fbp_op
 
 # --- Reading --- #
 directory = '/home/chchen/SwedenWork_Chong/Data_S/wetransfer-569840/'
-data_filename = 'rod.mrc'
+#data_filename = 'rod.mrc'
+data_filename = 'triangle.mrc'
 file_path = directory + data_filename
 
 # File readers can be used as context managers like `open`. As argument,
@@ -42,19 +44,22 @@ data_csides = reader.cell_sides_angstrom
 data_extent = data_csides * data_shape
 
 # Create data space
-data_space = odl.uniform_discr(-data_extent / 2, data_extent / 2, data_shape)
+data_space = odl.uniform_discr(-data_extent / 2, data_extent / 2, data_shape,
+                               dtype='float32', interp='linear')
 data_elem = data_space.element(data)
 
 # data_elem.show(indices=np.s_[:, :, data_shape[-1] // 2])
-data_elem.show(indices=np.s_[:, :, 75])
+data_elem.show(indices=np.s_[:, :, 150])
 
 # Generate sampling on detector region, assume (0,0) is in the middle
-detector_partition = odl.uniform_partition(-data_csides[0:2] / 2,
-                                           data_csides[0:2] / 2,
+detector_partition = odl.uniform_partition(-data_extent[0:2] / 2,
+                                           data_extent[0:2] / 2,
                                            data_shape[0:2])  
+# Single axis
 # Have 151 angles uniformly distributed from -74.99730682 to 74.99730682
-angle_partition = odl.uniform_partition(np.deg2rad(-74.99730682), 
-                                        np.deg2rad(74.99730682), 151,
+angle_partition = odl.uniform_partition(np.deg2rad(extended_header['a_tilt'][0]), 
+                                        np.deg2rad(extended_header['a_tilt'][data_shape[-1]-1]),
+                                        data_shape[-1],
                                         nodes_on_bdry=[(True, True)])
 
 # Create 3-D parallel projection geometry
@@ -62,31 +67,42 @@ single_axis_geometry = odl.tomo.Parallel3dAxisGeometry(angle_partition,
                                                        detector_partition,
                                                        axis=[0, 0, -1])
 
-#plt.plot(extended_header['a_tilt'])
-#plt.plot(extended_header['b_tilt'])
-#plt.plot(extended_header['tilt_axis'])
-
+##plt.plot(extended_header['a_tilt'])
+##plt.plot(extended_header['b_tilt'])
+##plt.plot(extended_header['tilt_axis'])
+#
 ## Reconstruction space
 # Voxels in 3D region of interest
-rec_shape = np.array([200, 200, 200])
-# Define the 3D region centered at the origin in nm
-rec_size = np.array([70.,70., 70.])
-# Reconstruction space
-rec_space = odl.uniform_discr(-rec_size / 2, rec_size / 2, rec_shape,
-                              dtype='float32', interp='linear')
-                              
-## Create forward operator
-forward_op = odl.tomo.RayTransform(rec_space, single_axis_geometry,
-                                   impl='astra_cuda')
+rec_shape = data_shape
 
-## Load data as an element in range of forward operator
-tiltseries = forward_op.range.element(np.swapaxes(tiltseries_data, 0, 2))
-#tiltseries_nonoise = forward_op.range.element(
-#    np.swapaxes(tiltseries_nonoise_data, 0, 2))
-# Show 2D data for middle angle
-(tiltseries - np.mean(tiltseries)).show(
-    indices=np.s_[tiltseries.shape[0] // 2, :, :],
-    title='Middle projection (noise)')
-#(tiltseries_nonoise - np.mean(tiltseries_nonoise)).show(
-#    indices=np.s_[tiltseries_nonoise.shape[0] // 2, :, :],
-#    title='Middle projection (noise-free)')
+# Create reconstruction extent
+rec_extent = data_extent
+
+# Reconstruction space
+rec_space = odl.uniform_discr(-rec_extent / 2, rec_extent / 2, rec_shape,
+                              dtype='float32', interp='linear')
+
+## Create forward operator
+forward_op = RayTransform(rec_space, single_axis_geometry, impl='astra_cuda')
+
+# --- Create FilteredBackProjection (FBP) operator --- #    
+# Create FBP operator
+FBP = fbp_op(forward_op, padding=True, filter_type='Hamming',
+             frequency_scaling=0.8)
+# Calculate filtered backprojection of data             
+fbp_reconstruction = FBP(data_elem)
+
+# Shows result of FBP reconstruction
+fbp_reconstruction.show(title='Filtered backprojection')
+
+### Load data as an element in range of forward operator
+#tiltseries = forward_op.range.element(np.swapaxes(tiltseries_data, 0, 2))
+##tiltseries_nonoise = forward_op.range.element(
+##    np.swapaxes(tiltseries_nonoise_data, 0, 2))
+## Show 2D data for middle angle
+#(tiltseries - np.mean(tiltseries)).show(
+#    indices=np.s_[tiltseries.shape[0] // 2, :, :],
+#    title='Middle projection (noise)')
+##(tiltseries_nonoise - np.mean(tiltseries_nonoise)).show(
+##    indices=np.s_[tiltseries_nonoise.shape[0] // 2, :, :],
+##    title='Middle projection (noise-free)')

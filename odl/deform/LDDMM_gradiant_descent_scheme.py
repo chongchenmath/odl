@@ -463,7 +463,7 @@ padded_ft_fit_op = padded_ft_op(space, padded_size)
 vectorial_ft_fit_op = DiagonalOperator(*([padded_ft_fit_op] * space.ndim))
 
 # Fix the sigma parameter in the kernel
-sigma = 2.0
+sigma = 5.0
 
 # Compute the FT of kernel in fitting term
 ft_kernel_fitting = fitting_kernel_ft(kernel)

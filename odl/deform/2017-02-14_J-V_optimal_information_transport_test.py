@@ -30,10 +30,11 @@ from odl.discr import Gradient, Divergence
 from odl.deform.mass_preserving import geometric_deform, mass_presv_deform
 from odl.phantom import white_noise, disc_phantom, submarine, shepp_logan
 from odl.deform.linearized import _linear_deform
-from lcr_data.load_data import davids_head_radiodensity
 standard_library.install_aliases()    
 
 
+# Implement OIT solver based on L2-norm distance square case for
+# image reconstruction, need mass-preserving
 def optimal_information_transport_solver(gradS, I, niter, eps, lamb,
                                          inverse_inertia_op, impl='mp',
                                          callback=None):
@@ -42,7 +43,8 @@ def optimal_information_transport_solver(gradS, I, niter, eps, lamb,
     optimal information transportation.
     The model is:
     min lamb * (1 - sqrt{DetJacInvPhi})^2 + (T(phi.I) - g)^2,
-    where phi.I := DetJacInvPhi * I(InvPhi) is a mass-preserving deformation.
+    where phi.I := DetJacInvPhi * I(InvPhi) is a mass-preserving deformation,
+    or phi.I := I(InvPhi) is a geometric deformation
     Note that:
     If T is an identity operator, the above model reduces for image matching.
     If T is a forward projection operator, the above model is
@@ -80,9 +82,11 @@ def optimal_information_transport_solver(gradS, I, niter, eps, lamb,
     # Initialize the non-mass-preserving deformed template
     non_mp_deform_I = I
 
-    # Create the temporary elements for update
+    # Create gradient operator and divergence operator
     grad = Gradient(gradS.domain, method='forward', pad_mode='symmetric')
     div = - grad.adjoint
+
+    # Create the temporary elements for update
     v = grad.range.element()
 
     # Store energy
@@ -138,7 +142,8 @@ def optimal_information_transport_solver(gradS, I, niter, eps, lamb,
     return PhiStarI, E
 
 
-# Implement OIT solver based on Fisher-Rao distance case, need mass-preserving
+# Implement OIT solver based on Fisher-Rao distance case for image matching
+# Need mass-preserving
 def optimal_information_transport_solver2(I0, I1, niter, eps, lamb,
                                           inverse_inertia_op, callback=None):
     """
@@ -178,9 +183,11 @@ def optimal_information_transport_solver2(I0, I1, niter, eps, lamb,
     # Initialize the determinant of Jacobian of inverse deformation
     DPhiJacobian = domain.one()
 
-    # Create the temporary elements for update
+    # Create gradient operator and divergence operator
     grad_op = Gradient(domain, method='forward', pad_mode='symmetric')
     div_op = - grad_op.adjoint
+    
+    # Create the temporary elements for update
     v = grad_op.range.element()
 
     # Initialize the non-mass-preserving deformed template
@@ -285,10 +292,11 @@ def optimal_information_transport_solver_old(gradS, I, niter, eps, lamb,
     # Initialize the inverse deformation
     invphi = pspace.element(gradS.domain.points().T)
 
-
-    # Create the temporary elements for update
+    # Create gradient operator and divergence operator
     grad = Gradient(gradS.domain, method='forward', pad_mode='symmetric')
     div = - grad.adjoint
+    
+    # Create the temporary elements for update
     v = grad.range.element()
 
     # Store energy
@@ -399,9 +407,11 @@ def optimal_information_transport_solver2_old(I0, I1, niter, eps, lamb,
     # Initialize the inverse deformation
     invphi = pspace.element(domain.points().T)
 
-    # Create the temporary elements for update
+    # Create gradient operator and divergence operator
     grad_op = Gradient(domain, method='forward', pad_mode='symmetric')
     div_op = - grad_op.adjoint
+
+    # Create the temporary elements for update
     v = grad_op.range.element()
 
 #    # Create poisson solver
@@ -587,40 +597,29 @@ def kernel(x):
 #I0name = './pictures/handnew1.png'
 #I1name = './pictures/handnew2.png'
 #I0name = './pictures/v.png'
-# I1name = './pictures/Image100036.pgm'
+#I1name = './pictures/j.png'
 I0name = './pictures/ImageHalf068.png'
 I1name = './pictures/ImageHalf069.png'
 
-#phantom3d = davids_head_radiodensity(shape=(128,128,66))
-#phantom2d = phantom3d[:, :, phantom3d.shape[2]//2]
-#
 ## Get digital images
-I0_inp = np.rot90(plt.imread(I0name).astype('float'), -1)[::2, ::2]
-I1_inp = np.rot90(plt.imread(I1name).astype('float'), -1)[::2, ::2]
-#I0_inp = phantom2d
-##I1_inp = np.rot90(plt.imread(I1name).astype('float'), -1)
+I0 = np.rot90(plt.imread(I0name).astype('float'), -1)[::2, ::2]
+I1 = np.rot90(plt.imread(I1name).astype('float'), -1)[::2, ::2]
+#I0_inp = np.rot90(plt.imread(I0name).astype('float'), -1)[::4, ::4]
+#I1_inp = np.rot90(plt.imread(I1name).astype('float'), -1)[::4, ::4]
 #
-I0 = np.zeros([192, 192])
-I1 = np.zeros([192, 192])
+#I0 = np.zeros([128, 128])
+#I1 = np.zeros([128, 128])
 #
-I0[32:160, 32:160] = I0_inp
-I1[32:160, 32:160] = I1_inp
+#I0[32:96, 32:96] = I0_inp
+#I1[32:96, 32:96] = I1_inp
 
 # Discrete reconstruction space: discretized functions on the rectangle
 space = odl.uniform_discr(
-    min_pt=[-16, -16], max_pt=[16, 16], shape=[192, 192],
+    min_pt=[-16, -16], max_pt=[16, 16], shape=[128, 128],
     dtype='float32', interp='linear')
 
 # Create the ground truth as the given image
-ground_truth = space.element(I1)
-
-## Create the template
-#deform_field_space = space.tangent_bundle
-#disp_func = [
-#    lambda x: 16.0 * np.sin(np.pi * x[0] / 40.0),
-#    lambda x: 16.0 * np.sin(np.pi * x[1] / 36.0)]
-#deform_field = deform_field_space.element(disp_func)
-#template = space.element(geometric_deform(ground_truth, deform_field))
+ground_truth = space.element(I0)
 
 # Create the ground truth as the Shepp-Logan phantom
 # ground_truth = shepp_logan(space, modified=True)
@@ -629,7 +628,7 @@ ground_truth = space.element(I1)
 # ground_truth = odl.util.submarine_phantom(space, smooth=True, taper=50.0)
 
 # Create the template as the given image
-template = space.element(I0)
+template = space.element(I1)
 
 # # Create the template as the disc phantom
 # template = odl.util.disc_phantom(space, smooth=True, taper=50.0)
@@ -648,7 +647,7 @@ niter = 400
 
 # Show intermiddle results
 callback = odl.solvers.CallbackShow(
-    'iterates', display_step=1, clim=[np.min(ground_truth), np.max(ground_truth)]) & odl.solvers.CallbackPrintIteration()
+    'iterates', display_step=10) & odl.solvers.CallbackPrintIteration()
 
 # Implementation method for mass preserving or not,
 # impl chooses 'mp' or 'nmp', 'mp' means mass-preserving method,
@@ -663,20 +662,14 @@ impl2 = 'reconstruction'
 # Implementation method with Klas Modin or rkhs
 # impl chooses 'poisson' or 'rkhs', 'poisson' means using poisson solver,
 # 'rkhs' means using V-gradient
-impl3 = 'poisson'
+impl3 = 'rkhs'
 
 # Normalize the template's density as the same as the ground truth if consider
 # mass preserving method
 if impl1 == 'mp':
 #    template *= np.sum(ground_truth) / np.sum(template)
-    #template *= np.linalg.norm(ground_truth, 'fro')/ \
-    #    np.linalg.norm(template, 'fro')
-    template *= np.sum(ground_truth) / np.sum(template)
-elif impl1 == 'nmp':
-    template /= 2
-        
-    
-    
+    template *= np.linalg.norm(ground_truth, 'fro')/ \
+        np.linalg.norm(template, 'fro')
 
 
 ground_truth.show('Ground truth')
@@ -685,16 +678,16 @@ template.show('Template')
 # For image reconstruction
 if impl2 == 'reconstruction':
     # Give step size for solver
-    eps = 0.01
+    eps = 0.05
 
     # Give regularization parameter
-    lamb = 0.0001
+    lamb = 0.05
 
     # Fix the sigma parameter in the kernel
-    sigma = 0.5
+    sigma = 5.0
 
     # Give the number of directions
-    num_angles = 400
+    num_angles = 200
     
     # Create the uniformly distributed directions
     angle_partition = odl.uniform_partition(0, np.pi, num_angles,
@@ -708,7 +701,6 @@ if impl2 == 'reconstruction':
     geometry = odl.tomo.Parallel2dGeometry(angle_partition,
                                            detector_partition)
     
-    ggeometry = odl.tomo.parallel_beam_geometry(space)
     # Ray transform aka forward projection. We use ASTRA CUDA backend.
     op = odl.tomo.RayTransform(space, geometry, impl='astra_cuda')
 
@@ -761,18 +753,15 @@ if impl2 == 'reconstruction':
     plt.clf()
 
     plt.subplot(2, 3, 1)
-    plt.imshow(np.rot90(template), cmap='bone', vmin=np.asarray(template).min(),
-               vmax=np.asarray(template).max()), plt.axis('off')
+    plt.imshow(np.rot90(template), cmap='bone'), plt.axis('off')
     plt.title('template')
 
     plt.subplot(2, 3, 2)
-    plt.imshow(np.rot90(rec_result), cmap='bone', vmin=np.asarray(ground_truth).min(),
-               vmax=np.asarray(ground_truth).max()), plt.axis('off')
+    plt.imshow(np.rot90(rec_result), cmap='bone'), plt.axis('off')
     plt.title('rec_result')
     
     plt.subplot(2, 3, 3)
-    plt.imshow(np.rot90(ground_truth), cmap='bone', vmin=np.asarray(ground_truth).min(),
-               vmax=np.asarray(ground_truth).max()), plt.axis('off')
+    plt.imshow(np.rot90(ground_truth), cmap='bone'), plt.axis('off')
     plt.title('Ground truth')
     
     plt.subplot(2, 3, 4)
@@ -780,19 +769,12 @@ if impl2 == 'reconstruction':
              'r', np.asarray(rec_proj_data)[0], 'g'), plt.axis([0, 191, -3, 10]), plt.grid(True)
 
     plt.subplot(2, 3, 5)
-    plt.plot(np.asarray(proj_data)[1], 'b', np.asarray(noise_proj_data)[5],
-             'r', np.asarray(rec_proj_data)[1], 'g'), plt.axis([0, 191, -3, 10]), plt.grid(True)
+    plt.plot(np.asarray(proj_data)[5], 'b', np.asarray(noise_proj_data)[5],
+             'r', np.asarray(rec_proj_data)[5], 'g'), plt.axis([0, 191, -3, 10]), plt.grid(True)
     plt.subplot(2, 3, 6)
-    plt.plot(np.asarray(proj_data)[2], 'b', np.asarray(noise_proj_data)[10],
-             'r', np.asarray(rec_proj_data)[2], 'g'), plt.axis([0, 191, -3, 10]), plt.grid(True)
+    plt.plot(np.asarray(proj_data)[10], 'b', np.asarray(noise_proj_data)[10],
+             'r', np.asarray(rec_proj_data)[10], 'g'), plt.axis([0, 191, -3, 10]), plt.grid(True)
 
-    plt.figure(2, figsize=(8, 1.5))
-    plt.clf()
-    plt.plot(E)
-    plt.ylabel('Energy')
-    # plt.gca().axes.yaxis.set_ticklabels(['0']+['']*8)
-    plt.gca().axes.yaxis.set_ticklabels([])
-    plt.grid(True)
 
 # For image matching
 if impl2 == 'matching':

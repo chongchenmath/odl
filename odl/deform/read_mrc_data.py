@@ -6,7 +6,7 @@ import numpy as np
 
 from odl.tomo.data import (FileReaderMRC, FileWriterMRC,
                            mrc_header_from_params)
-from odl.tomo import Parallel2dGeometry, RayTransform, fbp_op
+from odl.tomo import Parallel3dAxisGeometry, RayTransform, fbp_op
 
 # --- Reading --- #
 directory = '/home/chchen/SwedenWork_Chong/Data_S/wetransfer-569840/'

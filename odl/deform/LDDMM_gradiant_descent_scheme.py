@@ -305,7 +305,8 @@ def LDDMM_gradient_descent_scheme_solver(gradS, I, time_pts, niter, eps,
                        pad_mode='symmetric')
 
     # Create the divergence op
-    div_op = Divergence(domain=pspace, method='forward', pad_mode='symmetric')
+    # div_op = Divergence(domain=pspace, method='forward', pad_mode='symmetric')
+    div_op = -grad_op.adjoint
 
     # Begin iteration for non-mass-preserving case
     if impl=='geom':

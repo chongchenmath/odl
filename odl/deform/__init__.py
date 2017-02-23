@@ -29,5 +29,5 @@ __all__ += linearized.__all__
 from .optimal_information_transport import *
 __all__ += optimal_information_transport.__all__
 
-from .read_mrc_data import *
-__all__ += read_mrc_data.__all__
+from .mrc_data_io import *
+__all__ += mrc_data_io.__all__

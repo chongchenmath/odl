@@ -435,7 +435,7 @@ single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
 # --- Creating reconstruction space --- #
 
 # Voxels in 3D region of interest
-rec_shape = (181, 181, 181)
+rec_shape = (182, 182, 182)
 # Create reconstruction extent
 rec_extent = np.asarray(rec_shape, float)
 # Reconstruction space
@@ -470,12 +470,10 @@ data_elem.show(title='Data in one projection',
 #rec_result.show(title='Filtered backprojection',
 #                        indices=np.s_[:, :, rec_result.shape[-1] // 2])
 #
-## --- Save FBP reconstructed result --- #  
+## --- Save reconstructed result --- #  
 #  
-#result_2_nii_format(result=rec_result,
-#                    file_name='triangle_FBPrecon.nii')
-#result_2_mrc_format(result=rec_result, 
-#                    file_name='triangle_FBPrecon.mrc')
+#result_2_nii_format(result=rec_result, file_name='triangle_FBPrecon.nii')
+#result_2_mrc_format(result=rec_result, file_name='triangle_FBPrecon.mrc')
 
 
 # --- Reconstructing by LDDMM-based method --- #    
@@ -513,387 +511,50 @@ time_itvs = 10
 image_N0 = LDDMM_gradient_descent_solver(
         gradS, template, time_itvs, niter, eps, lamb, kernel, impl, callback)
 
-#rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
-#rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])
-#rec_result = rec_space.element(image_N0[time_itvs])
-#
-#
-## --- Saving reconstructed result --- #  
-#      
-#
-#result_2_nii_format(result=rec_result, file_name='triangle_recon.nii')
-#result_2_mrc_format(result=rec_result, file_name='triangle_recon.mrc')
-#
-#
-## --- Showing reconstructed result --- #  
-#
-#
-## Plot the results of interest
-#plt.figure(1, figsize=(21, 21))
-#plt.clf()
-#
-#plt.subplot(2, 2, 1)
-#plt.imshow(np.rot90(template), cmap='bone',
-#           vmin=np.asarray(template).min(),
-#           vmax=np.asarray(template).max())
-#plt.colorbar()
-#plt.title('Template')
-#
-#plt.subplot(2, 2, 2)
-#plt.imshow(np.rot90(rec_result_1), cmap='bone',
-#           vmin=np.asarray(template).min(),
-#           vmax=np.asarray(template).max()) 
-#plt.colorbar()
-#plt.title('time_pts = {!r}'.format(8))
-#
-#plt.subplot(2, 2, 3)
-#plt.imshow(np.rot90(rec_result_2), cmap='bone',
-#           vmin=np.asarray(template).min(),
-#           vmax=np.asarray(template).max()) 
-#plt.colorbar()
-#plt.title('time_pts = {!r}'.format(15))
-#
-#plt.subplot(2, 2, 4)
-#plt.imshow(np.rot90(rec_result), cmap='bone',
-#           vmin=np.asarray(template).min(),
-#           vmax=np.asarray(template).max()) 
-#plt.colorbar()
-#plt.title('Reconstructed image by {!r} iters, '
-#    '{!r} projs'.format(niter, single_axis_geometry.partition.shape[0]))
-#
+rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
+rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])
+rec_result = rec_space.element(image_N0[time_itvs])
 
 
+# --- Saving reconstructed result --- #  
+      
+
+result_2_nii_format(result=rec_result, file_name='triangle_LDDMMrecon.nii')
+result_2_mrc_format(result=rec_result, file_name='triangle_LDDMMrecon.mrc')
 
 
+# --- Showing reconstructed result --- #  
 
-#
-## Give input images
-##I0name = './pictures/c_highres.png'
-##I1name = './pictures/i_highres.png'
-#I0name = './pictures/DS0003AxialSlice80.png' # 256 * 256, I0[:,:,1]
-#I1name = './pictures/DS0002AxialSlice80.png'
-##I0name = './pictures/hand5.png'
-##I1name = './pictures/hand3.png'
-##I0name = './pictures/handnew1.png'
-##I1name = './pictures/handnew2.png'
-##I0name = './pictures/v.png'
-##I1name = './pictures/j.png'
-##I0name = './pictures/ImageHalf058.png'
-##I1name = './pictures/ImageHalf059.png'
-##I0name = './pictures/ImageHalf068.png'
-##I1name = './pictures/ImageHalf069.png'
-##I0name = './pictures/ss_save.png' # 438 * 438
-##I1name = './pictures/ss_save_1.png'
-#
-## Get digital images
-##I0 = np.rot90(plt.imread(I0name).astype('float'), -1)[::2, ::2]
-##I1 = np.rot90(plt.imread(I1name).astype('float'), -1)[::2, ::2]
-#I0 = np.rot90(plt.imread(I0name).astype('float'), -1)
-#I1 = np.rot90(plt.imread(I1name).astype('float'), -1)
-#
-## Discrete reconstruction space: discretized functions on the rectangle
-#space = uniform_discr(
-#    min_pt=[-16, -16], max_pt=[16, 16], shape=[256, 256],
-#    dtype='float32', interp='linear')
-#
-## Create the ground truth as the given image
-#ground_truth = space.element(I0)
-#
-## Create the ground truth as the submarine phantom
-## ground_truth = submarine_phantom(space, smooth=True, taper=50.0)
-#
-## Create the ground truth as the Shepp-Logan phantom
-## ground_truth = shepp_logan(space, modified=True)
-#
-## Create the template as the given image
-#template = space.element(I1)
-#
-## Create the template as the disc phantom
-#template = disc_phantom(space, smooth=True, taper=50.0)
-#
-## Create the template as the deformed Shepp-Logan phantom
-## template = shepp_logan_2d(space, modified=True)
-#
-## Create the template for Shepp-Logan phantom
-##deform_field_space = space.vector_field_space
-##disp_func = [
-##    lambda x: 16.0 * np.sin(np.pi * x[0] / 40.0),
-##    lambda x: 16.0 * np.sin(np.pi * x[1] / 36.0)]
-##deform_field = deform_field_space.element(disp_func)
-##template = space.element(geometric_deform(shepp_logan(space, modified=True),
-##                                          deform_field))
-#
-### FFT setting for data matching term, 1 means 100% padding
-##padded_size = 2 * space.shape[0]
-##padded_ft_fit_op = padded_ft_op(space, padded_size)
-##vectorial_ft_fit_op = DiagonalOperator(*([padded_ft_fit_op] * space.ndim))
-#
-## Fix the sigma parameter in the kernel
-#sigma = 5.0
-#
-### Compute the FT of kernel in fitting term
-##ft_kernel_fitting = fitting_kernel_ft(space, kernel)
-#
-## Maximum iteration number
-#niter = 1000
-#
-## Implementation method for mass preserving or not,
-## impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
-## 'geom' means geometric deformation method
-#impl1 = 'mp'
-#
-## Implementation method for image matching or image reconstruction,
-## impl chooses 'matching' or 'reconstruction', 'matching' means image matching,
-## 'reconstruction' means image reconstruction
-#impl2 = 'reconstruction'
-#
-## Normalize the template's density as the same as the ground truth if consider
-## mass preserving method
-#if impl1 == 'mp':
-##    template *= np.sum(ground_truth) / np.sum(template)
-#    template *= np.linalg.norm(ground_truth, 'fro')/ \
-#        np.linalg.norm(template, 'fro')
-#
-## Show intermiddle results
-#callback = CallbackShow(
-#    '{!r} {!r} iterates'.format(impl1, impl2), display_step=5) & \
-#    CallbackPrintIteration()
-#
-#ground_truth.show('ground truth')
-#template.show('template')
-#
-## For image reconstruction
-#if impl2 == 'reconstruction':
-#    # Give step size for solver
-#    eps = 0.05
-#
-#    # Give regularization parameter
-#    lamb = 0.0000001
-#
-#    # Give the number of directions
-#    num_angles = 10
-#    
-#    # Create the uniformly distributed directions
-#    angle_partition = uniform_partition(0.0, np.pi, num_angles,
-#                                        nodes_on_bdry=[(True, False)])
-#    
-#    # Create 2-D projection domain
-#    # The length should be 1.5 times of that of the reconstruction space
-#    detector_partition = uniform_partition(-24, 24, 362)
-#    
-#    # Create 2-D parallel projection geometry
-#    geometry = Parallel2dGeometry(angle_partition, detector_partition)
-#    
-#    # Ray transform aka forward projection. We use ASTRA CUDA backend.
-#    ray_trafo = RayTransform(space, geometry, impl='astra_cuda')
-#
-#    # Create the forward operator for image reconstruction
-#    op = ray_trafo
-#
-#    # Create projection data by calling the op on the phantom
-#    proj_data = op(ground_truth)
-#
-#    # Add white Gaussion noise onto the noiseless data
-#    noise = 0.1 * white_noise(op.range)
-#
-#    # Add white Gaussion noise from file
-#    # noise = op.range.element(np.load('noise_20angles.npy'))
-#
-#    # Create the noisy projection data
-#    noise_proj_data = proj_data + noise
-#
-#    # Create the noisy data from file
-#    #noise_proj_data = op.range.element(
-#    #    np.load('noise_proj_data_20angles_snr_4_98.npy'))
-#
-##    # --- Create FilteredBackProjection (FBP) operator --- #    
-##    # Create FBP operator
-##    FBP = fbp_op(op, padding=True, filter_type='Hamming',
-##                 frequency_scaling=0.8)
-##    # Calculate filtered backprojection of data             
-##    fbp_reconstruction = FBP(proj_data)
-##    
-##    # Shows result of FBP reconstruction
-##    fbp_reconstruction.show(title='Filtered backprojection')
-#
-#    # Compute the signal-to-noise ratio in dB
-#    snr = snr(proj_data, noise, impl='dB')
-#
-#    # Output the signal-to-noise ratio
-#    print('snr = {!r}'.format(snr))
-#
-#    # Create the gradient operator for the L2 functional
-#    gradS = op.adjoint * (op - noise_proj_data)
-#
-#    # Give the number of time points
-#    time_itvs = 20
-#
-#    # Compute by LDDMM solver
-#    image_N0 = LDDMM_gradient_descent_solver(
-#        gradS, template, time_itvs, niter, eps, lamb, kernel, impl1, callback)
-#    
-#    rec_result_1 = space.element(image_N0[5])
-#    rec_result_2 = space.element(image_N0[10])
-#    rec_result_3 = space.element(image_N0[15])
-#    rec_result = space.element(image_N0[time_itvs])
-#
-##    template = rec_result
-#
-#    # Compute the projections of the reconstructed image
-#    rec_proj_data = op(rec_result)
-#
-#    # Plot the results of interest
-#    plt.figure(1, figsize=(21, 21))
-#    plt.clf()
-#
-#    plt.subplot(3, 3, 1)
-#    plt.imshow(np.rot90(template), cmap='bone',
-#               vmin=np.asarray(template).min(),
-#               vmax=np.asarray(template).max())
-#    plt.colorbar()
-#    plt.title('Template')
-#    
-#    plt.subplot(3, 3, 2)
-#    plt.imshow(np.rot90(rec_result_1), cmap='bone',
-#               vmin=np.asarray(ground_truth).min(),
-#               vmax=np.asarray(ground_truth).max()) 
-#    plt.colorbar()
-#    plt.title('time_pts = {!r}'.format(5))
-#
-#    plt.subplot(3, 3, 3)
-#    plt.imshow(np.rot90(rec_result_2), cmap='bone',
-#               vmin=np.asarray(ground_truth).min(),
-#               vmax=np.asarray(ground_truth).max()) 
-#    plt.colorbar()
-#    plt.title('time_pts = {!r}'.format(10))
-#
-#    plt.subplot(3, 3, 4)
-#    plt.imshow(np.rot90(rec_result_3), cmap='bone',
-#               vmin=np.asarray(ground_truth).min(),
-#               vmax=np.asarray(ground_truth).max()) 
-#    plt.colorbar()
-#    plt.title('time_pts = {!r}'.format(15))
-#
-#    plt.subplot(3, 3, 5)
-#    plt.imshow(np.rot90(rec_result), cmap='bone',
-#               vmin=np.asarray(ground_truth).min(),
-#               vmax=np.asarray(ground_truth).max()) 
-#    plt.colorbar()
-#    plt.title('Reconstructed image by {!r} iters, '
-#        '{!r} projs'.format(niter, num_angles))
-#
-#    plt.subplot(3, 3, 6)
-#    plt.imshow(np.rot90(ground_truth), cmap='bone',
-#               vmin=np.asarray(ground_truth).min(),
-#               vmax=np.asarray(ground_truth).max())
-#    plt.colorbar()
-#    plt.title('Ground truth')
-#    
-#    plt.subplot(3, 3, 7)
-#    plt.plot(np.asarray(proj_data)[0], 'b', np.asarray(noise_proj_data)[0],
-#             'r', np.asarray(rec_proj_data)[0], 'g'), 
-#    plt.axis([0, 361, -1, 17]), plt.grid(True)
-##    plt.title('$\Theta=0^\circ$, b: truth, r: noisy, '
-##        'g: rec_proj, SNR = {:.3}dB'.format(snr))
-##    plt.gca().axes.yaxis.set_ticklabels([])
-#
-#    plt.subplot(3, 3, 8)
-#    plt.plot(np.asarray(proj_data)[2], 'b', np.asarray(noise_proj_data)[2],
-#             'r', np.asarray(rec_proj_data)[2], 'g'),
-#    plt.axis([0, 361, -1, 17]), plt.grid(True)
-##    plt.title('$\Theta=90^\circ$')
-##    plt.gca().axes.yaxis.set_ticklabels([])
-#
-#    plt.subplot(3, 3, 9)
-#    plt.plot(np.asarray(proj_data)[4], 'b', np.asarray(noise_proj_data)[4],
-#             'r', np.asarray(rec_proj_data)[4], 'g'),
-#    plt.axis([0, 361, -1, 17]), plt.grid(True)
-##    plt.title('$\Theta=162^\circ$')
-##    plt.gca().axes.yaxis.set_ticklabels([])
-#
-## For image matching
-#if impl2 == 'matching':
-#    # Give step size for solver
-#    eps = 0.05
-#
-#    # Give regularization parameter
-#    lamb = 0.0000001
-#
-#    # Create the forward operator for image matching
-#    op = IdentityOperator(space)
-#
-#    # Create data by calling the op on the phantom
-#    data = op(ground_truth)
-#
-#    # Add white Gaussion noise onto the noiseless data
-#    noise = 0.0 * white_noise(op.range)
-#
-#    # Create the noisy projection data
-#    noise_data = data + noise
-#
-#    # Compute the signal-to-noise ratio in dB
-#    snr = snr(data, noise, impl='dB')
-#
-#    # Output the signal-to-noise ratio
-#    print('snr = {!r}'.format(snr))
-#
-#    # Create the gradient operator for the L2 functional
-#    gradS = op.adjoint * (op - noise_data)
-#
-#    # Give the number of time intervals
-#    time_itvs = 20
-#
-#    # Compute by LDDMM solver
-#    image_N0 = LDDMM_gradient_descent_solver(
-#        gradS, template, time_itvs, niter, eps, lamb, impl1, callback)
-#    
-#    rec_result_1 = space.element(image_N0[2])
-#    rec_result_2 = space.element(image_N0[5])
-#    rec_result_3 = space.element(image_N0[8])
-#    rec_result = space.element(image_N0[time_itvs])
-#
-#    # Plot the results of interest
-#    plt.figure(1, figsize=(21, 10))
-#    plt.clf()
-#
-#    plt.subplot(2, 3, 1)
-#    plt.imshow(np.rot90(template), cmap='bone',
-#               vmin=np.asarray(template).min(),
-#               vmax=np.asarray(template).max())
-#    plt.colorbar()
-#    plt.title('Template')
-#    
-#    plt.subplot(2, 3, 2)
-#    plt.imshow(np.rot90(rec_result_1), cmap='bone',
-#               vmin=np.asarray(rec_result_1).min(),
-#               vmax=np.asarray(rec_result_1).max()) 
-#    plt.colorbar()
-#    plt.title('time_pts = {!r}'.format(2))
-#
-#    plt.subplot(2, 3, 3)
-#    plt.imshow(np.rot90(rec_result_2), cmap='bone',
-#               vmin=np.asarray(rec_result_2).min(),
-#               vmax=np.asarray(rec_result_2).max()) 
-#    plt.colorbar()
-#    plt.title('time_pts = {!r}'.format(5))
-#
-#    plt.subplot(2, 3, 4)
-#    plt.imshow(np.rot90(rec_result_3), cmap='bone',
-#               vmin=np.asarray(rec_result_3).min(),
-#               vmax=np.asarray(rec_result_3).max()) 
-#    plt.colorbar()
-#    plt.title('time_pts = {!r}'.format(8))
-#
-#    plt.subplot(2, 3, 5)
-#    plt.imshow(np.rot90(rec_result), cmap='bone',
-#               vmin=np.asarray(rec_result).min(),
-#               vmax=np.asarray(rec_result).max()) 
-#    plt.colorbar()
-#    plt.title('Imatched image by {!r} iters'.format(niter))
-#
-#    plt.subplot(2, 3, 6)
-#    plt.imshow(np.rot90(ground_truth), cmap='bone',
-#               vmin=np.asarray(ground_truth).min(),
-#               vmax=np.asarray(ground_truth).max())
-#    plt.colorbar()
-#    plt.title('Ground truth')
+
+# Plot the results of interest
+plt.figure(1, figsize=(21, 21))
+plt.clf()
+
+plt.subplot(2, 2, 1)
+plt.imshow(np.rot90(template), cmap='bone',
+           vmin=np.asarray(template).min(),
+           vmax=np.asarray(template).max())
+plt.colorbar()
+plt.title('Template')
+
+plt.subplot(2, 2, 2)
+plt.imshow(np.rot90(rec_result_1), cmap='bone',
+           vmin=np.asarray(template).min(),
+           vmax=np.asarray(template).max()) 
+plt.colorbar()
+plt.title('time_pts = {!r}'.format(8))
+
+plt.subplot(2, 2, 3)
+plt.imshow(np.rot90(rec_result_2), cmap='bone',
+           vmin=np.asarray(template).min(),
+           vmax=np.asarray(template).max()) 
+plt.colorbar()
+plt.title('time_pts = {!r}'.format(15))
+
+plt.subplot(2, 2, 4)
+plt.imshow(np.rot90(rec_result), cmap='bone',
+           vmin=np.asarray(template).min(),
+           vmax=np.asarray(template).max()) 
+plt.colorbar()
+plt.title('Reconstructed image by {!r} iters, '
+    '{!r} projs'.format(niter, single_axis_geometry.partition.shape[0]))

@@ -45,7 +45,7 @@ def read_mrc_data(file_path=None, force_type=None, normalize=None):
     data_extent = data_csides * data_shape
     
     if normalize == True:
-        data = (data + 32768.0) / 32768.0
+        data = (data + 32768.0) / 327.68
     
     if force_type == 'FEI1':    
         extended_header = reader.read_extended_header(force_type='FEI1')

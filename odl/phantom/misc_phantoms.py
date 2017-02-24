@@ -25,7 +25,7 @@ standard_library.install_aliases()
 import numpy as np
 
 
-__all__ = ('submarine', 'disc_phantom', 'donut')
+__all__ = ('submarine', 'disc_phantom', 'donut', 'sphere',)
 
 
 def submarine(space, smooth=True, taper=20.0):
@@ -196,7 +196,7 @@ def _disc_phantom_2d_smooth(discr, taper):
         """Blurred characteristic function of an circle.
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1]``,
         the circle is centered at ``(0.0, 0.0)`` and has half-axes
-        ``(0.25, 0.25)``. For other domains, the values are scaled
+        ``(0.2, 0.2)``. For other domains, the values are scaled
         accordingly.
         """
         halfaxes = np.array([0.2, 0.2]) * discr.domain.extent() / 2
@@ -213,7 +213,7 @@ def _disc_phantom_2d_smooth(discr, taper):
         return logistic(out, -taper)
 
     out = discr.element(blurred_circle)
-    return out.ufunc.minimum(1, out=out)
+    return out.ufuncs.minimum(1, out=out)
 
 
 def _disc_phantom_2d_nonsmooth(discr):
@@ -223,7 +223,7 @@ def _disc_phantom_2d_nonsmooth(discr):
         """Characteristic function of an circle.
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1]``,
         the circle is centered at ``(0.0, 0.0)`` and has half-axes
-        ``(0.25, 0.25)``. For other domains, the values are scaled
+        ``(0.2, 0.2)``. For other domains, the values are scaled
         accordingly.
         """
         halfaxes = np.array([0.2, 0.2]) * discr.domain.extent() / 2
@@ -236,7 +236,7 @@ def _disc_phantom_2d_nonsmooth(discr):
         return np.where(sq_ndist <= 1, 1, 0)
 
     out = discr.element(circle)
-    return out.ufunc.minimum(1, out=out)
+    return out.ufuncs.minimum(1, out=out)
 
 
 def donut(discr, smooth=True, taper=20.0):
@@ -317,7 +317,7 @@ def _donut_2d_smooth(discr, taper):
         return logistic(out, -taper)
 
     out = discr.element(blurred_circle_1) - discr.element(blurred_circle_2)
-    return out.ufunc.minimum(1, out=out)
+    return out.ufuncs.minimum(1, out=out)
 
 
 def _donut_2d_nonsmooth(discr):
@@ -356,7 +356,90 @@ def _donut_2d_nonsmooth(discr):
         return np.where(sq_ndist <= 1, 1, 0)
 
     out = discr.element(circle_1) - discr.element(circle_2)
-    return out.ufunc.minimum(1, out=out)
+    
+    return out.ufuncs.minimum(1, out=out)
+
+
+def sphere(discr, smooth=True, taper=20.0):
+    """Return a 'sphere' phantom.
+
+    Parameters
+    ----------
+    discr : `DiscreteLp`
+        Discretized space in which the phantom is supposed to be created
+    smooth : `bool`, optional
+        If `True`, the boundaries are smoothed out. Otherwise, the
+        function steps from 0 to 1 at the boundaries.
+    taper : `float`, optional
+        Tapering parameter for the boundary smoothing. Larger values
+        mean faster taper, i.e. sharper boundaries.
+
+    Returns
+    -------
+    phantom : `DiscreteLpElement`
+    """
+    if discr.ndim == 3:
+        if smooth:
+            return _sphere_3d_smooth(discr, taper)
+        else:
+            return _sphere_3d_nonsmooth(discr)
+    else:
+        raise ValueError('Phantom only defined in 3 dimensions, got {}.'
+                         ''.format(discr.dim))
+
+
+def _sphere_3d_smooth(discr, taper):
+    """Return a 3d smooth 'sphere' phantom."""
+
+    def logistic(x, c):
+        """Smoothed step function from 0 to 1, centered at 0."""
+        return 1. / (1 + np.exp(-c * x))
+
+    def blurred_sphere(x):
+        """Blurred characteristic function of a sphere.
+        If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
+        the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
+        ``(0.25, 0.25, 0.25)``. For other domains, the values are scaled
+        accordingly.
+        """
+        halfaxes = np.array([0.25, 0.25, 0.25]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
+
+        # Efficiently calculate |z|^2, z = (x - center) / radii
+        sq_ndist = np.zeros_like(x[0])
+        for xi, rad, cen in zip(x, halfaxes, center):
+            sq_ndist = sq_ndist + ((xi - cen) / rad) ** 2
+
+        out = np.sqrt(sq_ndist)
+        out -= 1
+        # Return logistic(taper * (1 - |z|))
+        return logistic(out, -taper)
+
+    out = discr.element(blurred_sphere)
+    return out.ufuncs.minimum(1, out=out)
+
+
+def _sphere_3d_nonsmooth(discr):
+    """Return a 3d nonsmooth 'sphere' phantom."""
+
+    def sphere(x):
+        """Characteristic function of an ellipse.
+        If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
+        the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
+        ``(0.25, 0.25, 0.25)``. For other domains, the values are scaled
+        accordingly.
+        """
+        halfaxes = np.array([0.25, 0.25, 0.25]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
+
+        sq_ndist = np.zeros_like(x[0])
+        for xi, rad, cen in zip(x, halfaxes, center):
+            sq_ndist = sq_ndist + ((xi - cen) / rad) ** 2
+
+        return np.where(sq_ndist <= 1, 1, 0)
+
+    out = discr.element(sphere)
+    return out.ufuncs.minimum(1, out=out)
 
 
 if __name__ == '__main__':
@@ -373,8 +456,14 @@ if __name__ == '__main__':
     disc_phantom(space, smooth=True, taper=50).show('disc taper=50')
 
     donut(space, smooth=False).show('donut smooth=False')
-    donut(space, smooth=True).show('donut smooth=False')
-    donut(space, smooth=True, taper=50).show('donut smooth=False')
+    donut(space, smooth=True).show('donut smooth=True')
+    donut(space, smooth=True, taper=50).show('donut taper=50')
+    
+    space_3d = odl.uniform_discr([-1, -1, -1], [1, 1, 1], [300, 300, 300])
+    
+    sphere(space_3d, smooth=False).show('sphere smooth=False', indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    sphere(space_3d, smooth=True).show('sphere smooth=True', indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    sphere(space_3d, smooth=True, taper=50).show('sphere taper=50', indices=np.s_[space_3d.shape[-1] // 2, :, :])
 
     # Run also the doctests
     # pylint: disable=wrong-import-position

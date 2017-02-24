@@ -31,6 +31,7 @@ from odl.deform.LDDMM_gradiant_descent_scheme import (
         LDDMM_gradient_descent_solver)
 from odl.deform.mrc_data_io import (read_mrc_data, geometry_mrc_data,
                                     result_2_mrc_format, result_2_nii_format)
+#from odl.tomo import RayTransform
 standard_library.install_aliases()
 
 

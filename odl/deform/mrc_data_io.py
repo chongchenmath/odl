@@ -133,58 +133,67 @@ def result_2_nii_format(result=None, file_name=None):
     nib.save(nib_arr, file_name)
 
 
-## --- Reading --- #
-#
-## Get the path of data
-#directory = '/home/chchen/SwedenWork_Chong/Data_S/wetransfer-569840/'
-#data_filename = 'rod.mrc'
-#file_path = directory + data_filename
-#data, data_extent, header, extended_header = read_mrc_data(file_path=file_path,
-#                                                           force_type='FEI1',
-#                                                           normalize=True)
-#
-## --- Getting geometry --- #
-#
-## Create 3-D parallel projection geometry
-#single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
-#                                         data_shape=data.shape,
-#                                         extended_header=extended_header)
-#
-## Reconstruction space
-#
-## Voxels in 3D region of interest
-#rec_shape = (362, 362, 362)
-#
-## Create reconstruction extent
-#rec_extent = np.asarray(rec_shape, float)
-#
-## Reconstruction space
-#rec_space = uniform_discr(-rec_extent / 2, rec_extent / 2, rec_shape,
-#                          dtype='float32', interp='linear')
-#
-## Create forward operator
-#forward_op = RayTransform(rec_space, single_axis_geometry, impl='astra_cuda')
-#
-## Change the axises of the 3D data
-#data_temp1 = np.swapaxes(data, 0, 2)
-#data_temp2 = np.swapaxes(data_temp1, 1, 2)
-#data_elem = forward_op.range.element(data_temp2)
-#data_elem.show(indices=np.s_[10, :, :])
-#
-#
-## --- Create FilteredBackProjection (FBP) operator --- #    
-#
-## Create FBP operator
-#FBP = fbp_op(forward_op, padding=True, filter_type='Hamming',
-#             frequency_scaling=1.0)
-#
-## Implement FBP method            
-#fbp_reconstruction = FBP(data_elem)
-#
-## Shows result of FBP reconstruction
-#fbp_reconstruction.show(title='Filtered backprojection', indices=np.s_[:, :, 36])
-#
-## --- Save reconstructed result --- #  
-#  
-#result_2_nii_format(result=fbp_reconstruction, file_name='rod_recon.nii')
-#result_2_mrc_format(result=fbp_reconstruction, file_name='rod_recon.mrc')
+if __name__ == '__main__':
+
+    # --- Reading --- #
+    
+    # Get the path of data
+    directory = '/home/chchen/SwedenWork_Chong/Data_S/wetransfer-569840/'
+    data_filename = 'rod.mrc'
+    file_path = directory + data_filename
+    data, data_extent, header, extended_header = read_mrc_data(file_path=file_path,
+                                                               force_type='FEI1',
+                                                               normalize=True)
+    
+    # --- Getting geometry --- #
+    
+    # Create 3-D parallel projection geometry
+    single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
+                                             data_shape=data.shape,
+                                             extended_header=extended_header)
+    
+    # Reconstruction space
+    
+    # Voxels in 3D region of interest
+    rec_shape = (362, 362, 362)
+    
+    # Create reconstruction extent
+    rec_extent = np.asarray(rec_shape, float)
+    
+    # Reconstruction space
+    rec_space = uniform_discr(-rec_extent / 2, rec_extent / 2, rec_shape,
+                              dtype='float32', interp='linear')
+    
+    # Create forward operator
+    forward_op = RayTransform(rec_space, single_axis_geometry, impl='astra_cuda')
+    
+    # Change the axises of the 3D data
+    data_temp1 = np.swapaxes(data, 0, 2)
+    data_temp2 = np.swapaxes(data_temp1, 1, 2)
+    data_elem = forward_op.range.element(data_temp2)
+    data_elem.show(title='Data in one projection',
+                   indices=np.s_[data_elem.shape[0] // 2, :, :])
+    
+    
+    # --- Create FilteredBackProjection (FBP) operator --- #    
+    
+    # Create FBP operator
+    FBP = fbp_op(forward_op, padding=True, filter_type='Hamming',
+                 frequency_scaling=1.0)
+    
+    # Implement FBP method            
+    fbp_reconstruction = FBP(data_elem)
+    
+    # Shows result of FBP reconstruction
+    fbp_reconstruction.show(title='Filtered backprojection',
+                            indices=np.s_[:, :, fbp_reconstruction.shape[-1] // 2])
+    
+    # --- Save reconstructed result --- #  
+      
+    result_2_nii_format(result=fbp_reconstruction, file_name='rod_recon.nii')
+    result_2_mrc_format(result=fbp_reconstruction, file_name='rod_recon.mrc')
+    
+    # Run also the doctests
+    # pylint: disable=wrong-import-position
+    from odl.util.testutils import run_doctests
+    run_doctests()

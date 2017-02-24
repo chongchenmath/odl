@@ -55,7 +55,7 @@ single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
 # --- Creating reconstruction space --- #
 
 # Voxels in 3D region of interest
-rec_shape = (181, 181, 181)
+rec_shape = (182, 182, 182)
 # Create reconstruction extent
 rec_extent = np.asarray(rec_shape, float)
 # Reconstruction space
@@ -139,50 +139,50 @@ def kernel(x):
 image_N0 = LDDMM_gradient_descent_solver(
         gradS, template, time_itvs, niter, eps, lamb, kernel, impl, callback)
 
-#rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
-#rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])
-#rec_result = rec_space.element(image_N0[time_itvs])
-#
-#
-## --- Saving reconstructed result --- #  
-#      
-#
-#result_2_nii_format(result=rec_result, file_name='triangle_recon.nii')
-#result_2_mrc_format(result=rec_result, file_name='triangle_recon.mrc')
-#
-#
-## --- Showing reconstructed result --- #  
-#
-#
-## Plot the results of interest
-#plt.figure(1, figsize=(21, 21))
-#plt.clf()
-#
-#plt.subplot(2, 2, 1)
-#plt.imshow(np.rot90(template), cmap='bone',
-#           vmin=np.asarray(template).min(),
-#           vmax=np.asarray(template).max())
-#plt.colorbar()
-#plt.title('Template')
-#
-#plt.subplot(2, 2, 2)
-#plt.imshow(np.rot90(rec_result_1), cmap='bone',
-#           vmin=np.asarray(template).min(),
-#           vmax=np.asarray(template).max()) 
-#plt.colorbar()
-#plt.title('time_pts = {!r}'.format(8))
-#
-#plt.subplot(2, 2, 3)
-#plt.imshow(np.rot90(rec_result_2), cmap='bone',
-#           vmin=np.asarray(template).min(),
-#           vmax=np.asarray(template).max()) 
-#plt.colorbar()
-#plt.title('time_pts = {!r}'.format(15))
-#
-#plt.subplot(2, 2, 4)
-#plt.imshow(np.rot90(rec_result), cmap='bone',
-#           vmin=np.asarray(template).min(),
-#           vmax=np.asarray(template).max()) 
-#plt.colorbar()
-#plt.title('Reconstructed image by {!r} iters, '
-#    '{!r} projs'.format(niter, single_axis_geometry.partition.shape[0]))
+rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
+rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])
+rec_result = rec_space.element(image_N0[time_itvs])
+
+
+# --- Saving reconstructed result --- #  
+      
+
+result_2_nii_format(result=rec_result, file_name='triangle_LDDMMrecon.nii')
+result_2_mrc_format(result=rec_result, file_name='triangle_LDDMMrecon.mrc')
+
+
+# --- Showing reconstructed result --- #  
+
+
+# Plot the results of interest
+plt.figure(1, figsize=(21, 21))
+plt.clf()
+
+plt.subplot(2, 2, 1)
+plt.imshow(np.rot90(template), cmap='bone',
+           vmin=np.asarray(template).min(),
+           vmax=np.asarray(template).max())
+plt.colorbar()
+plt.title('Template')
+
+plt.subplot(2, 2, 2)
+plt.imshow(np.rot90(rec_result_1), cmap='bone',
+           vmin=np.asarray(template).min(),
+           vmax=np.asarray(template).max()) 
+plt.colorbar()
+plt.title('time_pts = {!r}'.format(8))
+
+plt.subplot(2, 2, 3)
+plt.imshow(np.rot90(rec_result_2), cmap='bone',
+           vmin=np.asarray(template).min(),
+           vmax=np.asarray(template).max()) 
+plt.colorbar()
+plt.title('time_pts = {!r}'.format(15))
+
+plt.subplot(2, 2, 4)
+plt.imshow(np.rot90(rec_result), cmap='bone',
+           vmin=np.asarray(template).min(),
+           vmax=np.asarray(template).max()) 
+plt.colorbar()
+plt.title('Reconstructed image by {!r} iters, '
+    '{!r} projs'.format(niter, single_axis_geometry.partition.shape[0]))

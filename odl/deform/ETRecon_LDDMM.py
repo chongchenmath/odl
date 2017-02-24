@@ -25,7 +25,6 @@ from future import standard_library
 import numpy as np
 import matplotlib.pyplot as plt
 from odl.discr import uniform_discr
-from odl.tomo import RayTransform, fbp_op
 from odl.phantom import sphere
 from odl.solvers import CallbackShow, CallbackPrintIteration
 from odl.deform.LDDMM_gradiant_descent_scheme import (
@@ -106,7 +105,7 @@ template = sphere(rec_space, smooth=True)
 template.show('sphere smooth=True', indices=np.s_[rec_space.shape[-1] // 2, :, :])
 
 # Maximum iteration number
-niter = 100
+niter = 500
 
 # Implementation method for mass preserving or not,
 # impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
@@ -118,7 +117,7 @@ callback = CallbackShow(
     '{!r} iterates'.format(impl), display_step=5) & CallbackPrintIteration()
 
 # Give step size for solver
-eps = 0.05
+eps = 0.01
 
 # Give regularization parameter
 lamb = 0.0000001

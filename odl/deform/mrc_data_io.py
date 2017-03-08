@@ -1,6 +1,7 @@
 from __future__ import print_function
 from future import standard_library
 import numpy as np
+from math import ceil
 import nibabel as nib
 from odl.tomo.data import (FileReaderMRC, FileWriterMRC,
                            mrc_header_from_params)
@@ -54,7 +55,8 @@ def read_mrc_data(file_path=None, force_type=None, normalize=None):
         return data, data_extent, header
 
 
-def geometry_mrc_data(data_extent=None, data_shape=None, extended_header=None):
+def geometry_mrc_data(data_extent=None, data_shape=None,
+                      extended_header=None, downsam=None):
     """Get the geometry of FEI MRC data.
     
     Now only support single axis tilt geometry. 
@@ -82,7 +84,7 @@ def geometry_mrc_data(data_extent=None, data_shape=None, extended_header=None):
     # Have 151 angles uniformly distributed from -74.99730682 to 74.99730682
     angle_partition = uniform_partition(np.deg2rad(extended_header['a_tilt'][0]), 
                                         np.deg2rad(extended_header['a_tilt'][data_shape[-1]-1]),
-                                        data_shape[-1], 
+                                        ceil(data_shape[-1] / float(downsam)), 
                                         nodes_on_bdry=[(True, True)])
 
     # Create 3-D parallel projection geometry
@@ -145,20 +147,25 @@ if __name__ == '__main__':
                                                                force_type='FEI1',
                                                                normalize=True)
     
+    #Downsample the data
+    downsam = 15
+    data_downsam = data[:, :, ::downsam]
+    
     # --- Getting geometry --- #
     
     # Create 3-D parallel projection geometry
     single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
                                              data_shape=data.shape,
-                                             extended_header=extended_header)
+                                             extended_header=extended_header,
+                                             downsam=downsam)
     
     # Reconstruction space
     
     # Voxels in 3D region of interest
-    rec_shape = (362, 362, 362)
+    rec_shape = (128, 128, 128)
     
     # Create reconstruction extent
-    rec_extent = np.asarray(rec_shape, float)
+    rec_extent = np.asarray((1024, 1024, 1024), float)
     
     # Reconstruction space
     rec_space = uniform_discr(-rec_extent / 2, rec_extent / 2, rec_shape,
@@ -168,9 +175,11 @@ if __name__ == '__main__':
     forward_op = RayTransform(rec_space, single_axis_geometry, impl='astra_cuda')
     
     # Change the axises of the 3D data
-    data_temp1 = np.swapaxes(data, 0, 2)
+    data_temp1 = np.swapaxes(data_downsam, 0, 2)
     data_temp2 = np.swapaxes(data_temp1, 1, 2)
     data_elem = forward_op.range.element(data_temp2)
+    
+    # Show one sinograph
     data_elem.show(title='Data in one projection',
                    indices=np.s_[data_elem.shape[0] // 2, :, :])
     

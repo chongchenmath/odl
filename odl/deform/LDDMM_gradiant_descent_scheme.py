@@ -23,13 +23,11 @@ Shape-based reconstruction using LDDMM.
 from __future__ import print_function, division, absolute_import
 from future import standard_library
 import numpy as np
-from builtins import super
 import matplotlib.pyplot as plt
-from odl.discr import (Gradient, Divergence, uniform_discr,
-                       uniform_partition, ResizingOperator, DiscreteLp)
+from odl.discr import (Gradient, uniform_discr, ResizingOperator)
 from odl.trafos import FourierTransform
 from odl.space import ProductSpace
-from odl.tomo import Parallel2dGeometry, RayTransform, fbp_op
+from odl.tomo import RayTransform, fbp_op
 from odl.phantom import (white_noise, disc_phantom, submarine,
                          shepp_logan, geometric, sphere)
 from odl.operator import (DiagonalOperator, IdentityOperator)
@@ -93,13 +91,6 @@ def padded_ft_op(space, padded_size):
         padded_op.range, halfcomplex=False, shift=shifts, impl='pyfftw')
 
     return ft_op * padded_op
-
-
-# Kernel function
-def kernel(x):
-    sigma = 5.0
-    scaled = [xi ** 2 / (2 * sigma ** 2) for xi in x]
-    return np.exp(-sum(scaled))
 
 
 def fitting_kernel(space, kernel):
@@ -223,8 +214,9 @@ def shepp_logan_2d(space, modified=False):
     return geometric.ellipse_phantom(space, ellipses)
 
 
-def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
-                                  lamb, kernel, impl='geom', callback=None):
+def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
+                                  eps, lamb, kernel, impl='geom',
+                                  callback=None):
     """
     Solver for the shape-based reconstruction using LDDMM.
 
@@ -240,9 +232,10 @@ def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
 
     Parameters
     ----------
-    gradS : `Operator`
-        op.adjoint * (op - noise_proj_data),
-        where op is a forward operator, noise_proj_data is the given data.
+    forward_op : `Operator`
+        Forward operator.
+    data_elem : 'DiscreteLpElement'
+        Given data.
     I : `DiscreteLpElement`
         Fixed template deformed by the deformation.
     time_pts : `int`
@@ -254,6 +247,8 @@ def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
     lamb : 'float'
         The given regularization parameter. It's a wight on 
         regularization-term side.
+    kernel : 'function'
+        Kernel function in RKHS.
     impl : 'string'
         The given implementation method for mass preserving or not.
         The impl chooses 'mp' or 'geom', where 'mp' means using
@@ -268,11 +263,14 @@ def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
 
     # Give the inverse of time intervals
     inv_N = 1.0 / N
+    
+    # Create the gradient operator for the L2 functional
+    gradS = forward_op.adjoint * (forward_op - data_elem)
 
     # Create the space of image
     image_domain = gradS.domain
 
-    # Get the dimansion
+    # Get the dimension
     dim = image_domain.ndim
     
     # FFT setting for data matching term, 1 means 100% padding
@@ -319,11 +317,16 @@ def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
     # Create the divergence op
     # div_op = Divergence(domain=pspace, method='forward', pad_mode='symmetric')
     div_op = -grad_op.adjoint
+    
+    # Store energy
+    E = []
+    kE = len(E)
+    E = np.hstack((E, np.zeros(niter)))
 
     # Begin iteration for non-mass-preserving case
     if impl=='geom':
         print(impl)
-        for _ in range(niter):
+        for k in range(niter):
             # Update the velocity field
             for i in range(N+1):
                 tmp1 = (grad_data_matching_N1[i] * detDphi_N1[i]).copy()
@@ -356,6 +359,9 @@ def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
             # Show intermediate result
             if callback is not None:
                 callback(PhiStarI)
+
+            # Compute the energy of the data fitting term 
+            E[k+kE] += np.asarray((forward_op(PhiStarI) - data_elem)**2).sum()
     
             # Update gradient of the data matching: grad S(W_I(v^k))
             grad_data_matching_N1[N] = image_domain.element(
@@ -365,12 +371,12 @@ def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
                     _linear_deform(grad_data_matching_N1[N-i],
                                    inv_N * vector_fields[N-i-1])).copy()
     
-        return image_N0
+        return image_N0, E
 
     # Begin iteration for mass-preserving case
     elif impl=='mp':
         print(impl)
-        for _ in range(niter):
+        for k in range(niter):
             # Update the velocity field
             for i in range(N+1):
                 tmp = grad_op(grad_data_matching_N1[i]).copy()
@@ -403,6 +409,9 @@ def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
             # Show intermediate result
             if callback is not None:
                 callback(PhiStarI)
+            
+            # Compute the energy of the data fitting term 
+            E[k+kE] += np.asarray((forward_op(PhiStarI) - data_elem)**2).sum()
     
             # Update gradient of the data matching: grad S(W_I(v^k))
             grad_data_matching_N1[N] = image_domain.element(
@@ -412,14 +421,14 @@ def LDDMM_gradient_descent_solver(gradS, I, time_pts, niter, eps,
                     _linear_deform(grad_data_matching_N1[N-i],
                                    inv_N * vector_fields[N-i-1])).copy()
     
-        return mp_deformed_image_N0
+        return mp_deformed_image_N0, E
 
 
 if __name__ == '__main__':
 
 
-    # --- Reading -data-- #
-    
+    # --- Reading data --- #
+
     # Get the path of data
     directory = '/home/chchen/SwedenWork_Chong/Data_S/wetransfer-569840/'
     data_filename = 'triangle.mrc'
@@ -428,20 +437,27 @@ if __name__ == '__main__':
                                                                force_type='FEI1',
                                                                normalize=True)
     
+    #Downsample the data
+    downsam = 15
+    data_downsam = data[:, :, ::downsam]
+    
     # --- Getting geometry --- #
     
     # Create 3-D parallel projection geometry
     single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
                                              data_shape=data.shape,
-                                             extended_header=extended_header)
+                                             extended_header=extended_header,
+                                             downsam=downsam)
     
     # --- Creating reconstruction space --- #
     
     # Voxels in 3D region of interest
-    rec_shape = (182, 182, 182)
+    rec_shape = (128, 128, 128)
+
     # Create reconstruction extent
-    rec_extent = np.asarray(rec_shape, float)
+    rec_extent = np.asarray((1024, 1024, 1024), float)
     # Reconstruction space
+    
     rec_space = uniform_discr(-rec_extent / 2, rec_extent / 2, rec_shape,
                               dtype='float32', interp='linear')
     
@@ -453,7 +469,7 @@ if __name__ == '__main__':
     # --- Chaging the axises of the 3D data --- #
     
     # Change the axises of the 3D data
-    data_temp1 = np.swapaxes(data, 0, 2)
+    data_temp1 = np.swapaxes(data_downsam, 0, 2)
     data_temp2 = np.swapaxes(data_temp1, 1, 2)
     data_elem = forward_op.range.element(data_temp2)
     # Show one sinograph
@@ -485,11 +501,11 @@ if __name__ == '__main__':
     
     
     # Create the template and show one slice
-    template = sphere(rec_space, smooth=True)
-    template.show('sphere smooth=True', indices=np.s_[rec_space.shape[-1] // 2, :, :])
+    template = sphere(rec_space, smooth=True, taper=10.0)
+    template.show('sphere smooth=True', indices=np.s_[rec_space.shape[0] // 2, :, :])
     
     # Maximum iteration number
-    niter = 100
+    niter = 50
     
     # Implementation method for mass preserving or not,
     # impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
@@ -501,20 +517,24 @@ if __name__ == '__main__':
         '{!r} iterates'.format(impl), display_step=5) & CallbackPrintIteration()
     
     # Give step size for solver
-    eps = 0.01
+    eps = 0.001
     
     # Give regularization parameter
     lamb = 0.0000001
     
-    # Create the gradient operator for the L2 functional
-    gradS = forward_op.adjoint * (forward_op - data_elem)
-    
     # Give the number of time points
-    time_itvs = 10
+    time_itvs = 20
+    
+    # Give kernel function
+    def kernel(x):
+        sigma = 4.0
+        scaled = [xi ** 2 / (2 * sigma ** 2) for xi in x]
+        return np.exp(-sum(scaled))
     
     # Compute by LDDMM solver
-    image_N0 = LDDMM_gradient_descent_solver(
-            gradS, template, time_itvs, niter, eps, lamb, kernel, impl, callback)
+    image_N0, E = LDDMM_gradient_descent_solver(forward_op, data_elem, template,
+                                                time_itvs, niter, eps, lamb,
+                                                kernel, impl, callback)
     
     rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
     rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])
@@ -524,8 +544,8 @@ if __name__ == '__main__':
     # --- Saving reconstructed result --- #  
           
     
-    result_2_nii_format(result=rec_result, file_name='triangle_LDDMMrecon.nii')
-    result_2_mrc_format(result=rec_result, file_name='triangle_LDDMMrecon.mrc')
+    result_2_nii_format(result=rec_result, file_name='triangle_LDDMMrecon3.nii')
+    result_2_mrc_format(result=rec_result, file_name='triangle_LDDMMrecon3.mrc')
     
     
     # --- Showing reconstructed result --- #  
@@ -536,30 +556,41 @@ if __name__ == '__main__':
     plt.clf()
     
     plt.subplot(2, 2, 1)
-    plt.imshow(np.rot90(template), cmap='bone',
+    plt.imshow(np.asarray(template)[template.shape[0] // 2, :, :], cmap='bone',
                vmin=np.asarray(template).min(),
-               vmax=np.asarray(template).max())
+               vmax=np.asarray(template).max()) 
     plt.colorbar()
-    plt.title('Template')
+    plt.title('time_pts = {!r}'.format(0))
     
     plt.subplot(2, 2, 2)
-    plt.imshow(np.rot90(rec_result_1), cmap='bone',
+    plt.imshow(np.asarray(rec_result_1)[rec_result_1.shape[0] // 2, :, :],
+               cmap='bone',
                vmin=np.asarray(template).min(),
                vmax=np.asarray(template).max()) 
     plt.colorbar()
-    plt.title('time_pts = {!r}'.format(8))
+    plt.title('time_pts = {!r}'.format(time_itvs // 3))
     
     plt.subplot(2, 2, 3)
-    plt.imshow(np.rot90(rec_result_2), cmap='bone',
+    plt.imshow(np.asarray(rec_result_2)[rec_result_2.shape[0] // 2, :, :],
+               cmap='bone',
                vmin=np.asarray(template).min(),
                vmax=np.asarray(template).max()) 
     plt.colorbar()
-    plt.title('time_pts = {!r}'.format(15))
+    plt.title('time_pts = {!r}'.format(time_itvs // 3 * 2))
     
     plt.subplot(2, 2, 4)
-    plt.imshow(np.rot90(rec_result), cmap='bone',
+    plt.imshow(np.asarray(rec_result)[rec_result.shape[0] // 2, :, :],
+               cmap='bone',
                vmin=np.asarray(template).min(),
                vmax=np.asarray(template).max()) 
     plt.colorbar()
     plt.title('Reconstructed image by {!r} iters, '
         '{!r} projs'.format(niter, single_axis_geometry.partition.shape[0]))
+    
+    plt.figure(2, figsize=(8, 1.5))
+    plt.clf()
+    plt.plot(E)
+    plt.ylabel('Energy')
+    # plt.gca().axes.yaxis.set_ticklabels(['0']+['']*8)
+    plt.gca().axes.yaxis.set_ticklabels([])
+    plt.grid(True)

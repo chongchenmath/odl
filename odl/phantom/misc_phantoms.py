@@ -25,7 +25,7 @@ standard_library.install_aliases()
 import numpy as np
 
 
-__all__ = ('submarine', 'disc_phantom', 'donut', 'sphere',)
+__all__ = ('submarine', 'disc_phantom', 'donut', 'sphere', 'sphere2', 'cube')
 
 
 def submarine(space, smooth=True, taper=20.0):
@@ -399,11 +399,11 @@ def _sphere_3d_smooth(discr, taper):
         """Blurred characteristic function of a sphere.
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
         the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
-        ``(0.25, 0.25, 0.25)``. For other domains, the values are scaled
+        ``(0.1, 0.1, 0.1)``. For other domains, the values are scaled
         accordingly.
         """
-        halfaxes = np.array([0.25, 0.25, 0.25]) * discr.domain.extent() / 2
-        center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
+        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, -0.15]) * discr.domain.extent() / 2
 
         # Efficiently calculate |z|^2, z = (x - center) / radii
         sq_ndist = np.zeros_like(x[0])
@@ -426,10 +426,92 @@ def _sphere_3d_nonsmooth(discr):
         """Characteristic function of an ellipse.
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
         the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
-        ``(0.25, 0.25, 0.25)``. For other domains, the values are scaled
+        ``(0.1, 0.1, 0.1)``. For other domains, the values are scaled
         accordingly.
         """
-        halfaxes = np.array([0.25, 0.25, 0.25]) * discr.domain.extent() / 2
+        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, -0.15]) * discr.domain.extent() / 2
+
+        sq_ndist = np.zeros_like(x[0])
+        for xi, rad, cen in zip(x, halfaxes, center):
+            sq_ndist = sq_ndist + ((xi - cen) / rad) ** 2
+
+        return np.where(sq_ndist <= 1, 1, 0)
+
+    out = discr.element(sphere)
+    return out.ufuncs.minimum(1, out=out)
+
+
+def sphere2(discr, smooth=True, taper=20.0):
+    """Return a 'sphere' phantom.
+
+    Parameters
+    ----------
+    discr : `DiscreteLp`
+        Discretized space in which the phantom is supposed to be created
+    smooth : `bool`, optional
+        If `True`, the boundaries are smoothed out. Otherwise, the
+        function steps from 0 to 1 at the boundaries.
+    taper : `float`, optional
+        Tapering parameter for the boundary smoothing. Larger values
+        mean faster taper, i.e. sharper boundaries.
+
+    Returns
+    -------
+    phantom : `DiscreteLpElement`
+    """
+    if discr.ndim == 3:
+        if smooth:
+            return _sphere_3d_smooth2(discr, taper)
+        else:
+            return _sphere_3d_nonsmooth2(discr)
+    else:
+        raise ValueError('Phantom only defined in 3 dimensions, got {}.'
+                         ''.format(discr.dim))
+
+
+def _sphere_3d_smooth2(discr, taper):
+    """Return a 3d smooth 'sphere' phantom."""
+
+    def logistic(x, c):
+        """Smoothed step function from 0 to 1, centered at 0."""
+        return 1. / (1 + np.exp(-c * x))
+
+    def blurred_sphere(x):
+        """Blurred characteristic function of a sphere.
+        If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
+        the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
+        ``(0.1, 0.1, 0.1)``. For other domains, the values are scaled
+        accordingly.
+        """
+        halfaxes = np.array([0.2, 0.2, 0.2]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
+
+        # Efficiently calculate |z|^2, z = (x - center) / radii
+        sq_ndist = np.zeros_like(x[0])
+        for xi, rad, cen in zip(x, halfaxes, center):
+            sq_ndist = sq_ndist + ((xi - cen) / rad) ** 2
+
+        out = np.sqrt(sq_ndist)
+        out -= 1
+        # Return logistic(taper * (1 - |z|))
+        return logistic(out, -taper)
+
+    out = discr.element(blurred_sphere)
+    return out.ufuncs.minimum(1, out=out)
+
+
+def _sphere_3d_nonsmooth2(discr):
+    """Return a 3d nonsmooth 'sphere' phantom."""
+
+    def sphere(x):
+        """Characteristic function of an ellipse.
+        If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
+        the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
+        ``(0.1, 0.1, 0.1)``. For other domains, the values are scaled
+        accordingly.
+        """
+        halfaxes = np.array([0.2, 0.2, 0.2]) * discr.domain.extent() / 2
         center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
 
         sq_ndist = np.zeros_like(x[0])
@@ -439,6 +521,91 @@ def _sphere_3d_nonsmooth(discr):
         return np.where(sq_ndist <= 1, 1, 0)
 
     out = discr.element(sphere)
+    return out.ufuncs.minimum(1, out=out)
+
+
+def cube(space, smooth=True, taper=20.0):
+    """Return a 3D 'cube' phantom.
+
+    Parameters
+    ----------
+    space : `DiscreteLp`
+        Discretized space in which the phantom is supposed to be created.
+    smooth : bool, optional
+        If ``True``, the boundaries are smoothed out. Otherwise, the
+        function steps from 0 to 1 at the boundaries.
+    taper : float, optional
+        Tapering parameter for the boundary smoothing. Larger values
+        mean faster taper, i.e. sharper boundaries.
+
+    Returns
+    -------
+    phantom : ``space`` element
+        The submarine phantom in ``space``.
+    """
+    if space.ndim == 3:
+        if smooth:
+            return _cube_3d_smooth(space, taper)
+        else:
+            return _cube_3d_nonsmooth(space)
+    else:
+        raise ValueError('phantom only defined in 3 dimensions, got {}'
+                         ''.format(space.ndim))
+
+
+def _cube_3d_smooth(space, taper):
+    """Return a 2d smooth 'cube' phantom."""
+
+    def logistic(x, c):
+        """Smoothed step function from 0 to 1, centered at 0."""
+        return 1. / (1 + np.exp(-c * x))
+
+    def blurred_cube(x):
+        """Blurred characteristic function of a cube.
+
+        If ``space.domain`` is a rectangle ``[0, 1] x [0, 1] x [0, 1]``,
+        the rect has lower left ``(0.35, 0.35, 0.35)`` and upper right
+        ``(0.65, 0.65, 0.65)``. For other domains, the values are scaled
+        accordingly.
+        """
+        xlower = np.array([0.35, 0.35, 0.35]) * space.domain.extent()
+        xlower += space.domain.min()
+        xupper = np.array([0.65, 0.65, 0.65]) * space.domain.extent()
+        xupper += space.domain.min()
+
+        out = np.ones_like(x[0])
+        for xi, low, upp in zip(x, xlower, xupper):
+            length = upp - low
+            out = out * (logistic((xi - low) / length, taper) *
+                         logistic((upp - xi) / length, taper))
+        return out
+
+    out = space.element(blurred_cube)
+    return out.ufuncs.minimum(1, out=out)
+
+
+def _cube_3d_nonsmooth(space):
+    """Return a 2d nonsmooth 'cube' phantom."""
+
+    def cube(x):
+        """Characteristic function of a rectangle.
+
+        If ``space.domain`` is a rectangle ``[0, 1] x [0, 1] x [0, 1]``,
+        the rect has lower left ``(0.35, 0.35, 0.35)`` and upper right
+        ``(0.65, 0.65, 0.65)``. For other domains, the values are scaled
+        accordingly.
+        """
+        xlower = np.array([0.35, 0.35, 0.35]) * space.domain.extent()
+        xlower += space.domain.min()
+        xupper = np.array([0.65, 0.65, 0.65]) * space.domain.extent()
+        xupper += space.domain.min()
+
+        out = np.ones_like(x[0])
+        for xi, low, upp in zip(x, xlower, xupper):
+            out = out * ((xi >= low) & (xi <= upp))
+        return out
+
+    out = space.element(cube)
     return out.ufuncs.minimum(1, out=out)
 
 
@@ -461,9 +628,26 @@ if __name__ == '__main__':
     
     space_3d = odl.uniform_discr([-1, -1, -1], [1, 1, 1], [300, 300, 300])
     
-    sphere(space_3d, smooth=False).show('sphere smooth=False', indices=np.s_[space_3d.shape[-1] // 2, :, :])
-    sphere(space_3d, smooth=True).show('sphere smooth=True', indices=np.s_[space_3d.shape[-1] // 2, :, :])
-    sphere(space_3d, smooth=True, taper=50).show('sphere taper=50', indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    sphere(space_3d, smooth=False).show('sphere smooth=False',
+          indices=np.s_[:, :, space_3d.shape[-1] // 2])
+    sphere(space_3d, smooth=True).show('sphere smooth=True',
+          indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    sphere(space_3d, smooth=True, taper=50).show('sphere taper=50',
+          indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    
+    sphere2(space_3d, smooth=False).show('sphere smooth=False',
+          indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    sphere2(space_3d, smooth=True).show('sphere smooth=True',
+          indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    sphere2(space_3d, smooth=True, taper=50).show('sphere taper=50',
+          indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    
+    cube(space_3d, smooth=False).show('cube smooth=False',
+        indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    cube(space_3d, smooth=True).show('cube smooth=True',
+        indices=np.s_[space_3d.shape[-1] // 2, :, :])
+    cube(space_3d, smooth=True, taper=50).show('cube taper=50',
+        indices=np.s_[space_3d.shape[-1] // 2, :, :])
 
     # Run also the doctests
     # pylint: disable=wrong-import-position

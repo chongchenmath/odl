@@ -24,29 +24,33 @@ from __future__ import print_function, division, absolute_import
 from future import standard_library
 import numpy as np
 import matplotlib.pyplot as plt
-from odl.discr import uniform_discr
-from odl.phantom import sphere, sphere2, cube
-from odl.solvers import CallbackShow, CallbackPrintIteration
+from odl.discr import uniform_discr, Gradient
+from odl.phantom import sphere, sphere2, cube, particles_3d
 from odl.deform.LDDMM_gradiant_descent_scheme import (
         LDDMM_gradient_descent_solver)
 from odl.deform.mrc_data_io import (read_mrc_data, geometry_mrc_data,
                                     result_2_mrc_format, result_2_nii_format)
 from odl.tomo import RayTransform, fbp_op
+from odl.operator import (BroadcastOperator, power_method_opnorm)
+from odl.solvers import (CallbackShow, CallbackPrintIteration, ZeroFunctional,
+                         L2NormSquared, L1Norm, SeparableSum, 
+                         chambolle_pock_solver, conjugate_gradient_normal)
 standard_library.install_aliases()
 
 
+#%%%
 # --- Reading data --- #
 
 # Get the path of data
 directory = '/home/chchen/SwedenWork_Chong/Data_S/wetransfer-569840/'
-data_filename = 'triangle.mrc'
+data_filename = 'triangle_crop.mrc'
 file_path = directory + data_filename
 data, data_extent, header, extended_header = read_mrc_data(file_path=file_path,
                                                            force_type='FEI1',
                                                            normalize=True)
 
 #Downsample the data
-downsam = 15
+downsam = 1
 data_downsam = data[:, :, ::downsam]
 
 # --- Getting geometry --- #
@@ -62,8 +66,16 @@ single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
 # Voxels in 3D region of interest
 rec_shape = (128, 128, 128)
 
+## Create reconstruction extent
+## for rod 
+#min_pt = np.asarray((-150, -150, -150), float)
+#max_pt = np.asarray((150, 150, 150), float)
+
 # Create reconstruction extent
+# for triangle, sphere
 rec_extent = np.asarray((1024, 1024, 1024), float)
+#min_pt = np.asarray((-100, -100, -100), float)
+#max_pt = np.asarray((100, 100, 100), float)
 
 # Reconstruction space
 rec_space = uniform_discr(-rec_extent / 2, rec_extent / 2, rec_shape,
@@ -87,37 +99,49 @@ data_elem.show(title='Data in one projection',
                indices=np.s_[data_elem.shape[0] // 2, :, :])
 
 
-## --- Reconstructing by FBP --- #    
-##
-##
-## Create FBP operator
-#FBP = fbp_op(forward_op, padding=True, filter_type='Hamming',
-#             frequency_scaling=1.0)
-## Implement FBP method            
-#rec_result_FBP = FBP(data_elem)
-## Shows result of FBP reconstruction
-#rec_result_FBP.show(title='Filtered backprojection',
-#                    indices=np.s_[:, :, rec_result_FBP.shape[-1] // 2])
-#rec_result_FBP.show(title='Filtered backprojection',
-#                    indices=np.s_[:, rec_result_FBP.shape[1] // 2, :])
-#rec_result_FBP.show(title='Filtered backprojection',
-#                    indices=np.s_[rec_result_FBP.shape[0] // 2, :, :])
-##
-### --- Save FBP reconstructed result --- #  
-##  
-#result_2_nii_format(result=rec_result_FBP,
-#                    file_name='triangle_FBPrecon.nii')
-#result_2_mrc_format(result=rec_result_FBP, 
-#                    file_name='triangle_FBPrecon.mrc')
+#%%%
+# --- Reconstructing by FBP --- #    
 #
 #
-## --- Reconstructing by LDDMM-based method --- #    
+# Create FBP operator
+FBP = fbp_op(forward_op, padding=True, filter_type='Hamming',
+             frequency_scaling=1.0)
+# Implement FBP method            
+rec_result_FBP = FBP(data_elem)
+rec_result_FBP_save = np.asarray(rec_result_FBP)
+###rec_result_FBP_save = np.where(rec_result_FBP_save >= 0.1, rec_result_FBP_save, 0.0)
+### Shows result of FBP reconstruction
+rec_result_FBP.show(title='Filtered backprojection',
+                    indices=np.s_[:, :, rec_result_FBP.shape[-1] // 2],
+                    aspect='equal')
+rec_result_FBP.show(title='Filtered backprojection',
+                    indices=np.s_[:, rec_result_FBP.shape[1] // 2, :],
+                    aspect='equal')
+rec_result_FBP.show(title='Filtered backprojection',
+                    indices=np.s_[rec_result_FBP.shape[0] // 2 - 13, :, :],
+                    aspect='equal')
+#
+#### --- Save FBP reconstructed result --- #  
+###  
+##result_2_nii_format(result=rec_result_FBP_save,
+##                    file_name='rod_FBPrecon_angle6.nii')
+#result_2_mrc_format(result=rec_result_FBP_save,
+#                    file_name='triangle_FBPrecon_angle6_7.mrc')
+
+
+#%%%
+# --- Reconstructing by LDDMM-based method --- #    
 #
 #
 # Create the template and show one slice
-template = sphere(rec_space, smooth=True, taper=50.0)
-#template.show('template, sphere smooth=True',
-#              indices=np.s_[rec_space.shape[0] // 2, :, :])
+# sphere for rod, triamgle, sphere2 for sphere
+template = sphere(rec_space, smooth=True, taper=10.0)
+template.show('template, sphere smooth=True',
+              indices=np.s_[rec_space.shape[0] // 2, :, :], aspect='equal')
+template.show('template, sphere smooth=True',
+              indices=np.s_[:, rec_space.shape[1] // 2, :], aspect='equal')
+template.show('template, sphere smooth=True',
+              indices=np.s_[:, :, rec_space.shape[-1] // 2], aspect='equal')
 
 
 ## Create the ground truth and show one slice
@@ -141,11 +165,13 @@ niter = 50
 impl = 'geom'
 
 # Show intermiddle results
-callback = CallbackShow(
-    '{!r} iterates'.format(impl), display_step=5) & CallbackPrintIteration()
+callback = (CallbackPrintIteration() &
+            CallbackShow(indices=np.s_[:, :, rec_space.shape[-1] // 2], aspect='equal') &
+            CallbackShow(indices=np.s_[:, rec_space.shape[1] // 2, :], aspect='equal') &
+            CallbackShow(indices=np.s_[rec_space.shape[0] // 2, :, :], aspect='equal'))
 
 # Give step size for solver
-eps = 0.005
+eps = 0.0005
 
 # Give regularization parameter
 lamb = 0.0000001
@@ -155,7 +181,7 @@ time_itvs = 20
 
 # Give kernel function
 def kernel(x):
-    sigma = 5.0
+    sigma = 3.0
     scaled = [xi ** 2 / (2 * sigma ** 2) for xi in x]
     return np.exp(-sum(scaled))
 
@@ -168,20 +194,22 @@ image_N0, E = LDDMM_gradient_descent_solver(forward_op, data_elem, rec_result,
 
 rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
 rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])
+
 rec_result = rec_space.element(image_N0[time_itvs])
-
 rec_result_save = np.asarray(rec_result)
-rec_result_save = np.where(rec_result_save >= 0.5, rec_result_save, 0.0)
+#rec_result_save = np.where(rec_result_save >= 0.64, rec_result_save, 0.0)
 
-rec_result.show('rec_result', indices=np.s_[:, :, rec_result.shape[-1] // 2],clim=[0.001, 1.0])
-rec_result.show('rec_result', indices=np.s_[:, rec_result.shape[1] // 2, :], clim=[0.001, 1.0])
-rec_result.show('rec_result', indices=np.s_[rec_result.shape[0] // 2, :, :], clim=[0.001, 1.0])
+rec_result.show('rec_result', indices=np.s_[:, :, rec_result.shape[-1] // 2], aspect='equal')
+rec_result.show('rec_result', indices=np.s_[:, rec_result.shape[1] // 2, :], aspect='equal')
+rec_result.show('rec_result', indices=np.s_[rec_result.shape[0] // 2, :, :], aspect='equal')
 
 # --- Saving reconstructed result --- #  
       
 
-result_2_nii_format(result=rec_result_save, file_name='triangle_LDDMMrecon3.nii')
-result_2_mrc_format(result=rec_result_save, file_name='triangle_LDDMMrecon3.mrc')
+#result_2_nii_format(result=rec_result_save,
+#                    file_name='rod_LDDMMrecon_angle6_iter50.nii')
+result_2_mrc_format(result=rec_result_save,
+                    file_name='triangle_LDDMMrecon_angle6_iter50_2.mrc')
 
 
 # --- Showing reconstructed result --- #  
@@ -231,3 +259,76 @@ plt.ylabel('Energy')
 # plt.gca().axes.yaxis.set_ticklabels(['0']+['']*8)
 plt.gca().axes.yaxis.set_ticklabels([])
 plt.grid(True)
+
+
+#%%%
+## --- Reconstructing by TV method --- #    
+#
+#
+## Initialize gradient operator
+#grad_op = Gradient(rec_space, method='forward', pad_mode='symmetric')
+#
+## Column vector of two operators
+#op = BroadcastOperator(forward_op, grad_op)
+#
+## Do not use the g functional, set it to zero.
+#g = ZeroFunctional(op.domain)
+#
+## Set regularization parameter
+#lamb = 10.0
+#
+## Isotropic TV-regularization i.e. the l1-norm
+#l1_norm = lamb * L1Norm(grad_op.range)
+#
+## l2-squared data matching
+#l2_norm = L2NormSquared(forward_op.range).translated(data_elem)
+#
+## --- Select solver parameters and solve using Chambolle-Pock --- #
+## Estimate operator norm, add 10 percent to ensure ||K||_2^2 * sigma * tau < 1
+#op_norm = 1.1 * power_method_opnorm(op)
+#
+#niter = 1000  # Number of iterations
+#tau = 1.0 / op_norm  # Step size for the primal variable
+#sigma = 1.0 / op_norm  # Step size for the dual variable
+#gamma = 0.5
+#
+## Choose a starting point
+#x = forward_op.domain.zero()
+##x = rec_result_FBP
+#
+## Create functionals for the dual variable
+## Combine functionals, order must correspond to the operator K
+#f = SeparableSum(l2_norm, l1_norm)
+#
+## Optionally pass callback to the solver to display intermediate results
+#callback = (CallbackPrintIteration() &
+#            CallbackShow(indices=np.s_[:, :, x.shape[-1] // 2]) &
+#            CallbackShow(indices=np.s_[:, x.shape[1] // 2, :]) &
+#            CallbackShow(indices=np.s_[x.shape[0] // 2, :, :]))
+#
+## Run the algorithm
+#chambolle_pock_solver(x, f, g, op, tau=tau, sigma=sigma, niter=niter,
+#                      gamma=gamma, callback=callback)
+#    
+#
+### Show final result
+##x.show(coords=[x.shape[0] // 2, None, None],
+##       title='Reconstructed result by TV with {!r} iterations'.format(niter))
+##x.show(coords=[None, x.shape[1] // 2, None],
+##       title='Reconstructed result by TV with {!r} iterations'.format(niter))
+##x.show(coords=[None, None, x.shape[-1] // 2],
+##       title='Reconstructed result by TV with {!r} iterations'.format(niter))
+#
+#rec_result_save = np.asarray(x)
+##rec_result_save = np.where(rec_result_save >= 0.64, rec_result_save, 0.0)
+#
+#x.show('rec_result', indices=np.s_[:, :, x.shape[-1] // 2])
+#x.show('rec_result', indices=np.s_[:, x.shape[1] // 2, :])
+#x.show('rec_result', indices=np.s_[x.shape[0] // 2, :, :])
+#
+#
+## --- Saving reconstructed result --- #  
+#      
+#
+##result_2_nii_format(result=rec_result_save, file_name='rod_TV_angle6.nii')
+#result_2_mrc_format(result=rec_result_save, file_name='triangle_TV_angle6_6.mrc')

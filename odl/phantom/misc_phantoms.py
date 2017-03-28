@@ -25,7 +25,8 @@ standard_library.install_aliases()
 import numpy as np
 
 
-__all__ = ('submarine', 'disc_phantom', 'donut', 'sphere', 'sphere2', 'cube')
+__all__ = ('submarine', 'disc_phantom', 'donut', 'sphere',
+           'sphere2', 'cube', 'particles_3d')
 
 
 def submarine(space, smooth=True, taper=20.0):
@@ -399,11 +400,11 @@ def _sphere_3d_smooth(discr, taper):
         """Blurred characteristic function of a sphere.
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
         the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
-        ``(0.1, 0.1, 0.1)``. For other domains, the values are scaled
+        ``(0.05, 0.05, 0.05)``. For other domains, the values are scaled
         accordingly.
         """
-        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
-        center = np.array([0.0, 0.0, -0.15]) * discr.domain.extent() / 2
+        halfaxes = np.array([0.1, 0.1, 0.1]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
 
         # Efficiently calculate |z|^2, z = (x - center) / radii
         sq_ndist = np.zeros_like(x[0])
@@ -426,11 +427,11 @@ def _sphere_3d_nonsmooth(discr):
         """Characteristic function of an ellipse.
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
         the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
-        ``(0.1, 0.1, 0.1)``. For other domains, the values are scaled
+        ``(0.05, 0.05, 0.05)``. For other domains, the values are scaled
         accordingly.
         """
-        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
-        center = np.array([0.0, 0.0, -0.15]) * discr.domain.extent() / 2
+        halfaxes = np.array([0.1, 0.1, 0.1]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
 
         sq_ndist = np.zeros_like(x[0])
         for xi, rad, cen in zip(x, halfaxes, center):
@@ -481,11 +482,11 @@ def _sphere_3d_smooth2(discr, taper):
         """Blurred characteristic function of a sphere.
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
         the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
-        ``(0.1, 0.1, 0.1)``. For other domains, the values are scaled
+        ``(0.05, 0.05, 0.05)``. For other domains, the values are scaled
         accordingly.
         """
-        halfaxes = np.array([0.2, 0.2, 0.2]) * discr.domain.extent() / 2
-        center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
+        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
+        center = np.array([0.0, -0.5, 0.0]) * discr.domain.extent() / 2
 
         # Efficiently calculate |z|^2, z = (x - center) / radii
         sq_ndist = np.zeros_like(x[0])
@@ -508,11 +509,11 @@ def _sphere_3d_nonsmooth2(discr):
         """Characteristic function of an ellipse.
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
         the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
-        ``(0.1, 0.1, 0.1)``. For other domains, the values are scaled
+        ``(0.05, 0.05, 0.05)``. For other domains, the values are scaled
         accordingly.
         """
-        halfaxes = np.array([0.2, 0.2, 0.2]) * discr.domain.extent() / 2
-        center = np.array([0.0, 0.0, 0.0]) * discr.domain.extent() / 2
+        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
+        center = np.array([0.0, -0.5, 0.0]) * discr.domain.extent() / 2
 
         sq_ndist = np.zeros_like(x[0])
         for xi, rad, cen in zip(x, halfaxes, center):
@@ -606,6 +607,124 @@ def _cube_3d_nonsmooth(space):
         return out
 
     out = space.element(cube)
+    return out.ufuncs.minimum(1, out=out)
+
+
+def particles_3d(discr, smooth=True, taper=20.0):
+    """Return a 'two particles' phantom.
+
+    Parameters
+    ----------
+    discr : `DiscreteLp`
+        Discretized space in which the phantom is supposed to be created
+    smooth : `bool`, optional
+        If `True`, the boundaries are smoothed out. Otherwise, the
+        function steps from 0 to 1 at the boundaries.
+    taper : `float`, optional
+        Tapering parameter for the boundary smoothing. Larger values
+        mean faster taper, i.e. sharper boundaries.
+
+    Returns
+    -------
+    phantom : `DiscreteLpElement`
+    """
+    if discr.ndim == 3:
+        if smooth:
+            return _particles_3d_smooth(discr, taper)
+        else:
+            return _particles_3d_nonsmooth(discr)
+    else:
+        raise ValueError('Phantom only defined in 3 dimensions, got {}.'
+                         ''.format(discr.dim))
+
+
+def _particles_3d_smooth(discr, taper):
+    """Return a 3d smooth 'sphere' phantom."""
+
+    def logistic(x, c):
+        """Smoothed step function from 0 to 1, centered at 0."""
+        return 1. / (1 + np.exp(-c * x))
+
+    def blurred_sphere1(x):
+        """Blurred characteristic function of a sphere.
+        If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
+        the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
+        ``(0.05, 0.05, 0.05)``. For other domains, the values are scaled
+        accordingly.
+        """
+        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, 0.4]) * discr.domain.extent() / 2
+
+        # Efficiently calculate |z|^2, z = (x - center) / radii
+        sq_ndist = np.zeros_like(x[0])
+        for xi, rad, cen in zip(x, halfaxes, center):
+            sq_ndist = sq_ndist + ((xi - cen) / rad) ** 2
+
+        out = np.sqrt(sq_ndist)
+        out -= 1
+        # Return logistic(taper * (1 - |z|))
+        return logistic(out, -taper)
+    
+    def blurred_sphere2(x):
+        """Blurred characteristic function of a sphere.
+        If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
+        the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
+        ``(0.05, 0.05, 0.05)``. For other domains, the values are scaled
+        accordingly.
+        """
+        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.1, -0.4]) * discr.domain.extent() / 2
+
+        # Efficiently calculate |z|^2, z = (x - center) / radii
+        sq_ndist = np.zeros_like(x[0])
+        for xi, rad, cen in zip(x, halfaxes, center):
+            sq_ndist = sq_ndist + ((xi - cen) / rad) ** 2
+
+        out = np.sqrt(sq_ndist)
+        out -= 1
+        # Return logistic(taper * (1 - |z|))
+        return logistic(out, -taper)
+
+    out = discr.element(blurred_sphere1) + discr.element(blurred_sphere2)
+    return out.ufuncs.minimum(1, out=out)
+
+
+def _particles_3d_nonsmooth(discr):
+    """Return a 3d nonsmooth 'sphere' phantom."""
+
+    def blurred_sphere1(x):
+        """Characteristic function of an ellipse.
+        If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
+        the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
+        ``(0.05, 0.05, 0.05)``. For other domains, the values are scaled
+        accordingly.
+        """
+        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.0, 0.4]) * discr.domain.extent() / 2
+
+        sq_ndist = np.zeros_like(x[0])
+        for xi, rad, cen in zip(x, halfaxes, center):
+            sq_ndist = sq_ndist + ((xi - cen) / rad) ** 2
+
+        return np.where(sq_ndist <= 1, 1, 0)
+    
+    def blurred_sphere2(x):
+        """Characteristic function of an ellipse.
+        If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1] x [-1, 1]``,
+        the circle is centered at ``(0.0, 0.0, 0.0)`` and has half-axes
+        ``(0.05, 0.05, 0.05)``. For other domains, the values are scaled
+        accordingly.
+        """
+        halfaxes = np.array([0.05, 0.05, 0.05]) * discr.domain.extent() / 2
+        center = np.array([0.0, 0.1, -0.4]) * discr.domain.extent() / 2
+
+        sq_ndist = np.zeros_like(x[0])
+        for xi, rad, cen in zip(x, halfaxes, center):
+            sq_ndist = sq_ndist + ((xi - cen) / rad) ** 2
+
+        return np.where(sq_ndist <= 1, 1, 0)
+
+    out = discr.element(blurred_sphere1) + discr.element(blurred_sphere2)
     return out.ufuncs.minimum(1, out=out)
 
 

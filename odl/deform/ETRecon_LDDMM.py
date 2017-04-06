@@ -92,13 +92,6 @@ forward_op = RayTransform(rec_space, single_axis_geometry, impl='astra_cuda')
 #data = np.where(data >= 30, data, 0.0)
 data_temp1 = np.swapaxes(data_downsam, 0, 2)
 data_temp2 = np.swapaxes(data_temp1, 1, 2)
-
-# Evaluate the mass
-mean = np.sum(data_temp2[data_temp2.shape[0] // 2]) / data_temp2[data_temp2.shape[0] // 2].size
-temp = data_temp2[data_temp2.shape[0] // 2] - mean
-temp = np.where(temp >= 0.01, data_temp2[data_temp2.shape[0] // 2], 0.0)
-mass_from_data = np.sum(temp)
-
 data_elem = forward_op.range.element(data_temp2)
 
 # Show one sinograph
@@ -150,15 +143,6 @@ data_elem.show(title='Data in one projection',
 
 ## sphere for rod, triangle, sphere2 for sphere
 template = sphere(rec_space, smooth=True, taper=10.0)
-mass_template = np.sum(np.asarray(template))
-
-template.show('template, sphere smooth=True',
-              indices=np.s_[rec_space.shape[0] // 2, :, :], aspect='equal')
-template.show('template, sphere smooth=True',
-              indices=np.s_[:, rec_space.shape[1] // 2, :], aspect='equal')
-template.show('template, sphere smooth=True',
-              indices=np.s_[:, :, rec_space.shape[-1] // 2], aspect='equal')
-
 
 ## Create the ground truth and show one slice
 #ground_truth = cube(rec_space, smooth=True, taper=20.0)
@@ -179,6 +163,27 @@ niter = 200
 # impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
 # 'geom' means geometric deformation method
 impl = 'geom'
+
+if impl == 'mp':
+    # Evaluate the mass from data
+    mean = np.sum(data_temp2[data_temp2.shape[0] // 2]) / data_temp2[data_temp2.shape[0] // 2].size
+    temp = data_temp2[data_temp2.shape[0] // 2] - mean
+    temp = np.where(temp >= 0.01, data_temp2[data_temp2.shape[0] // 2], 0.0)
+    mass_from_data = np.sum(temp)
+    
+    # Evaluate the mass of template
+    mass_template = np.sum(np.asarray(template))
+    
+    # Get the same mass for template
+    template = mass_from_data / mass_template * template
+
+# Show slices of template
+template.show('template, sphere smooth=True',
+              indices=np.s_[rec_space.shape[0] // 2, :, :], aspect='equal')
+template.show('template, sphere smooth=True',
+              indices=np.s_[:, rec_space.shape[1] // 2, :], aspect='equal')
+template.show('template, sphere smooth=True',
+              indices=np.s_[:, :, rec_space.shape[-1] // 2], aspect='equal')
 
 # Show intermiddle results
 callback = (CallbackPrintIteration() &

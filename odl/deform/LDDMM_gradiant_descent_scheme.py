@@ -347,8 +347,10 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
                     _linear_deform(image_N0[i],
                                    -inv_N * vector_fields[i+1])).copy()
                 # Update detDphi_N1[N-i-1] by detDphi_N1[N-i]
+#                jacobian_det = image_domain.element(
+#                    np.exp(inv_N * div_op(vector_fields[N-i-1]))).copy()
                 jacobian_det = image_domain.element(
-                    np.exp(inv_N * div_op(vector_fields[N-i-1]))).copy()
+                        1.0 + inv_N * div_op(vector_fields[N-i-1])).copy()
                 detDphi_N1[N-i-1] = (
                     jacobian_det * image_domain.element(_linear_deform(
                         detDphi_N1[N-i], inv_N * vector_fields[N-i-1]))).copy()
@@ -395,8 +397,10 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
                     _linear_deform(image_N0[i], -inv_N * vector_fields[i+1])
                     ).copy()
                 # Update detDphi_N0[i+1] by detDphi_N0[i]
+#                jacobian_det = image_domain.element(
+#                    np.exp(-inv_N * div_op(vector_fields[i+1]))).copy()
                 jacobian_det = image_domain.element(
-                    np.exp(-inv_N * div_op(vector_fields[i+1]))).copy()
+                        1.0 - inv_N * div_op(vector_fields[i+1])).copy()
                 detDphi_N0[i+1] = (jacobian_det * image_domain.element(
                     _linear_deform(detDphi_N0[i],
                                    -inv_N * vector_fields[i+1]))).copy()

@@ -64,7 +64,7 @@ single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
 # --- Creating reconstruction space --- #
 
 # Voxels in 3D region of interest
-rec_shape = (128, 128, 128)
+rec_shape = (200, 200, 200)
 
 ## Create reconstruction extent
 ## for rod 
@@ -92,6 +92,13 @@ forward_op = RayTransform(rec_space, single_axis_geometry, impl='astra_cuda')
 #data = np.where(data >= 30, data, 0.0)
 data_temp1 = np.swapaxes(data_downsam, 0, 2)
 data_temp2 = np.swapaxes(data_temp1, 1, 2)
+
+# Evaluate the mass
+mean = np.sum(data_temp2[data_temp2.shape[0] // 2]) / data_temp2[data_temp2.shape[0] // 2].size
+temp = data_temp2[data_temp2.shape[0] // 2] - mean
+temp = np.where(temp >= 0.01, data_temp2[data_temp2.shape[0] // 2], 0.0)
+mass_from_data = np.sum(temp)
+
 data_elem = forward_op.range.element(data_temp2)
 
 # Show one sinograph
@@ -100,42 +107,51 @@ data_elem.show(title='Data in one projection',
 
 
 #%%%
-# --- Reconstructing by FBP --- #    
-#
-#
-# Create FBP operator
-FBP = fbp_op(forward_op, padding=True, filter_type='Hamming',
-             frequency_scaling=1.0)
-# Implement FBP method            
-rec_result_FBP = FBP(data_elem)
-rec_result_FBP_save = np.asarray(rec_result_FBP)
-###rec_result_FBP_save = np.where(rec_result_FBP_save >= 0.1, rec_result_FBP_save, 0.0)
-### Shows result of FBP reconstruction
-rec_result_FBP.show(title='Filtered backprojection',
-                    indices=np.s_[:, :, rec_result_FBP.shape[-1] // 2],
-                    aspect='equal')
-rec_result_FBP.show(title='Filtered backprojection',
-                    indices=np.s_[:, rec_result_FBP.shape[1] // 2, :],
-                    aspect='equal')
-rec_result_FBP.show(title='Filtered backprojection',
-                    indices=np.s_[rec_result_FBP.shape[0] // 2 - 13, :, :],
-                    aspect='equal')
+## --- Reconstructing by FBP --- #    
+##
+##
+## Create FBP operator
+#FBP = fbp_op(forward_op, padding=True, filter_type='Hamming',
+#             frequency_scaling=1.0)
+## Implement FBP method            
+#rec_result_FBP = FBP(data_elem)
+#rec_result_FBP_save = np.asarray(rec_result_FBP)
+####rec_result_FBP_save = np.where(rec_result_FBP_save >= 0.1, rec_result_FBP_save, 0.0)
+#### Shows result of FBP reconstruction
+#rec_result_FBP.show(title='Filtered backprojection',
+#                    indices=np.s_[:, :, rec_result_FBP.shape[-1] // 2],
+#                    aspect='equal')
+#rec_result_FBP.show(title='Filtered backprojection',
+#                    indices=np.s_[:, rec_result_FBP.shape[1] // 2, :],
+#                    aspect='equal')
+#rec_result_FBP.show(title='Filtered backprojection',
+#                    indices=np.s_[rec_result_FBP.shape[0] // 2 - 13, :, :],
+#                    aspect='equal')
 #
 #### --- Save FBP reconstructed result --- #  
 ###  
 ##result_2_nii_format(result=rec_result_FBP_save,
 ##                    file_name='rod_FBPrecon_angle6.nii')
 #result_2_mrc_format(result=rec_result_FBP_save,
-#                    file_name='triangle_FBPrecon_angle6_7.mrc')
-
+#                    file_name='triangle_FBPrecon_angle6_8.mrc')
+#
 
 #%%%
 # --- Reconstructing by LDDMM-based method --- #    
+
+## Get the path of template
+#directory2 = '/home/chchen/odl/odl/deform/'
+#data_filename2 = 'triangle_LDDMMrecon_angle151_iter200.mrc'
+#file_path2 = directory2 + data_filename2
 #
-#
-# Create the template and show one slice
-# sphere for rod, triamgle, sphere2 for sphere
+## Create the template and show one slice
+#data2, data_extent2, header2 = read_mrc_data(file_path=file_path2)
+#template = rec_space.element(data2)
+
+## sphere for rod, triangle, sphere2 for sphere
 template = sphere(rec_space, smooth=True, taper=10.0)
+mass_template = np.sum(np.asarray(template))
+
 template.show('template, sphere smooth=True',
               indices=np.s_[rec_space.shape[0] // 2, :, :], aspect='equal')
 template.show('template, sphere smooth=True',
@@ -157,7 +173,7 @@ template.show('template, sphere smooth=True',
 
 
 # Maximum iteration number
-niter = 50
+niter = 200
 
 # Implementation method for mass preserving or not,
 # impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
@@ -179,9 +195,10 @@ lamb = 0.0000001
 # Give the number of time points
 time_itvs = 20
 
+sigma = 3.0
+
 # Give kernel function
 def kernel(x):
-    sigma = 3.0
     scaled = [xi ** 2 / (2 * sigma ** 2) for xi in x]
     return np.exp(-sum(scaled))
 
@@ -209,7 +226,7 @@ rec_result.show('rec_result', indices=np.s_[rec_result.shape[0] // 2, :, :], asp
 #result_2_nii_format(result=rec_result_save,
 #                    file_name='rod_LDDMMrecon_angle6_iter50.nii')
 result_2_mrc_format(result=rec_result_save,
-                    file_name='triangle_LDDMMrecon_angle6_iter50_2.mrc')
+                    file_name='triangle_LDDMMrecon_angle151_iter200_kernel3_size200.mrc')
 
 
 # --- Showing reconstructed result --- #  
@@ -260,75 +277,75 @@ plt.ylabel('Energy')
 plt.gca().axes.yaxis.set_ticklabels([])
 plt.grid(True)
 
-
-#%%%
-## --- Reconstructing by TV method --- #    
 #
-#
-## Initialize gradient operator
-#grad_op = Gradient(rec_space, method='forward', pad_mode='symmetric')
-#
-## Column vector of two operators
-#op = BroadcastOperator(forward_op, grad_op)
-#
-## Do not use the g functional, set it to zero.
-#g = ZeroFunctional(op.domain)
-#
-## Set regularization parameter
-#lamb = 10.0
-#
-## Isotropic TV-regularization i.e. the l1-norm
-#l1_norm = lamb * L1Norm(grad_op.range)
-#
-## l2-squared data matching
-#l2_norm = L2NormSquared(forward_op.range).translated(data_elem)
-#
-## --- Select solver parameters and solve using Chambolle-Pock --- #
-## Estimate operator norm, add 10 percent to ensure ||K||_2^2 * sigma * tau < 1
-#op_norm = 1.1 * power_method_opnorm(op)
-#
-#niter = 1000  # Number of iterations
-#tau = 1.0 / op_norm  # Step size for the primal variable
-#sigma = 1.0 / op_norm  # Step size for the dual variable
-#gamma = 0.5
-#
-## Choose a starting point
-#x = forward_op.domain.zero()
-##x = rec_result_FBP
-#
-## Create functionals for the dual variable
-## Combine functionals, order must correspond to the operator K
-#f = SeparableSum(l2_norm, l1_norm)
-#
-## Optionally pass callback to the solver to display intermediate results
-#callback = (CallbackPrintIteration() &
-#            CallbackShow(indices=np.s_[:, :, x.shape[-1] // 2]) &
-#            CallbackShow(indices=np.s_[:, x.shape[1] // 2, :]) &
-#            CallbackShow(indices=np.s_[x.shape[0] // 2, :, :]))
-#
-## Run the algorithm
-#chambolle_pock_solver(x, f, g, op, tau=tau, sigma=sigma, niter=niter,
-#                      gamma=gamma, callback=callback)
-#    
-#
-### Show final result
-##x.show(coords=[x.shape[0] // 2, None, None],
-##       title='Reconstructed result by TV with {!r} iterations'.format(niter))
-##x.show(coords=[None, x.shape[1] // 2, None],
-##       title='Reconstructed result by TV with {!r} iterations'.format(niter))
-##x.show(coords=[None, None, x.shape[-1] // 2],
-##       title='Reconstructed result by TV with {!r} iterations'.format(niter))
-#
-#rec_result_save = np.asarray(x)
-##rec_result_save = np.where(rec_result_save >= 0.64, rec_result_save, 0.0)
-#
-#x.show('rec_result', indices=np.s_[:, :, x.shape[-1] // 2])
-#x.show('rec_result', indices=np.s_[:, x.shape[1] // 2, :])
-#x.show('rec_result', indices=np.s_[x.shape[0] // 2, :, :])
-#
-#
-## --- Saving reconstructed result --- #  
-#      
-#
-##result_2_nii_format(result=rec_result_save, file_name='rod_TV_angle6.nii')
-#result_2_mrc_format(result=rec_result_save, file_name='triangle_TV_angle6_6.mrc')
+##%%%
+### --- Reconstructing by TV method --- #    
+##
+##
+### Initialize gradient operator
+##grad_op = Gradient(rec_space, method='forward', pad_mode='symmetric')
+##
+### Column vector of two operators
+##op = BroadcastOperator(forward_op, grad_op)
+##
+### Do not use the g functional, set it to zero.
+##g = ZeroFunctional(op.domain)
+##
+### Set regularization parameter
+##lamb = 10.0
+##
+### Isotropic TV-regularization i.e. the l1-norm
+##l1_norm = lamb * L1Norm(grad_op.range)
+##
+### l2-squared data matching
+##l2_norm = L2NormSquared(forward_op.range).translated(data_elem)
+##
+### --- Select solver parameters and solve using Chambolle-Pock --- #
+### Estimate operator norm, add 10 percent to ensure ||K||_2^2 * sigma * tau < 1
+##op_norm = 1.1 * power_method_opnorm(op)
+##
+##niter = 1000  # Number of iterations
+##tau = 1.0 / op_norm  # Step size for the primal variable
+##sigma = 1.0 / op_norm  # Step size for the dual variable
+##gamma = 0.5
+##
+### Choose a starting point
+##x = forward_op.domain.zero()
+###x = rec_result_FBP
+##
+### Create functionals for the dual variable
+### Combine functionals, order must correspond to the operator K
+##f = SeparableSum(l2_norm, l1_norm)
+##
+### Optionally pass callback to the solver to display intermediate results
+##callback = (CallbackPrintIteration() &
+##            CallbackShow(indices=np.s_[:, :, x.shape[-1] // 2]) &
+##            CallbackShow(indices=np.s_[:, x.shape[1] // 2, :]) &
+##            CallbackShow(indices=np.s_[x.shape[0] // 2, :, :]))
+##
+### Run the algorithm
+##chambolle_pock_solver(x, f, g, op, tau=tau, sigma=sigma, niter=niter,
+##                      gamma=gamma, callback=callback)
+##    
+##
+#### Show final result
+###x.show(coords=[x.shape[0] // 2, None, None],
+###       title='Reconstructed result by TV with {!r} iterations'.format(niter))
+###x.show(coords=[None, x.shape[1] // 2, None],
+###       title='Reconstructed result by TV with {!r} iterations'.format(niter))
+###x.show(coords=[None, None, x.shape[-1] // 2],
+###       title='Reconstructed result by TV with {!r} iterations'.format(niter))
+##
+##rec_result_save = np.asarray(x)
+###rec_result_save = np.where(rec_result_save >= 0.64, rec_result_save, 0.0)
+##
+##x.show('rec_result', indices=np.s_[:, :, x.shape[-1] // 2])
+##x.show('rec_result', indices=np.s_[:, x.shape[1] // 2, :])
+##x.show('rec_result', indices=np.s_[x.shape[0] // 2, :, :])
+##
+##
+### --- Saving reconstructed result --- #  
+##      
+##
+###result_2_nii_format(result=rec_result_save, file_name='rod_TV_angle6.nii')
+##result_2_mrc_format(result=rec_result_save, file_name='triangle_TV_angle6_6.mrc')

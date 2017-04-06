@@ -30,7 +30,7 @@ from odl.discr import Gradient, Divergence
 from odl.deform.mass_preserving import geometric_deform, mass_presv_deform
 from odl.phantom import white_noise, disc_phantom, submarine, shepp_logan
 from odl.deform.linearized import _linear_deform
-from lcr_data.load_data import davids_head_radiodensity
+#from lcr_data.load_data import davids_head_radiodensity
 standard_library.install_aliases()    
 
 
@@ -587,7 +587,7 @@ def kernel(x):
 #I0name = './pictures/handnew1.png'
 #I1name = './pictures/handnew2.png'
 #I0name = './pictures/v.png'
-# I1name = './pictures/Image100036.pgm'
+# I1name = './pictures/j.pgm'
 I0name = './pictures/ImageHalf068.png'
 I1name = './pictures/ImageHalf069.png'
 

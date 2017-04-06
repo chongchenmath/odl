@@ -136,8 +136,11 @@ def optimal_information_transport_solver(gradS, I, niter, eps, lamb,
             _linear_deform(non_mp_deform_I, - eps * v))
 
         # Update the determinant of Jacobian of inverse deformation
-        DPhiJacobian = np.exp(- eps * div(v)) * image_space.element(
-            _linear_deform(DPhiJacobian, - eps * v))
+        # Old implementation for updating Jacobian determinant
+        # DPhiJacobian = np.exp(- eps * div(v)) * image_space.element(
+        #    _linear_deform(DPhiJacobian, - eps * v))
+        DPhiJacobian = (1.0 - eps * div(v)) * image_space.element(
+           _linear_deform(DPhiJacobian, - eps * v))
 
     return PhiStarI, E
 
@@ -239,9 +242,11 @@ def optimal_information_transport_solver2(I0, I1, niter, eps, lamb,
         non_mp_deform_I0 = domain.element(
             _linear_deform(non_mp_deform_I0, - eps * v))
 
-        # Update the determinant of Jacobian of inverse deformation
-        DPhiJacobian = np.exp(- eps * div_op(v)) * domain.element(
-            _linear_deform(DPhiJacobian, - eps * v))
+        # Old implementation for updating Jacobian determinant
+#        DPhiJacobian = np.exp(- eps * div_op(v)) * domain.element(
+#           _linear_deform(DPhiJacobian, - eps * v))
+        DPhiJacobian = (1.0 - eps * div_op(v)) * domain.element(
+           _linear_deform(DPhiJacobian, - eps * v))
 
     return PhiStarI0, E
 
@@ -596,14 +601,14 @@ def kernel(x):
 # I1name = './pictures/DS0002AxialSlice80.png'
 #I0name = './pictures/handnew1.png'
 #I1name = './pictures/handnew2.png'
-#I0name = './pictures/v.png'
-#I1name = './pictures/j.png'
-I0name = './pictures/ImageHalf068.png'
-I1name = './pictures/ImageHalf069.png'
+I0name = './pictures/v.png'
+I1name = './pictures/j.png'
+#I0name = './pictures/ImageHalf068.png' #256*256
+#I1name = './pictures/ImageHalf069.png'
 
 ## Get digital images
-I0 = np.rot90(plt.imread(I0name).astype('float'), -1)[::2, ::2]
-I1 = np.rot90(plt.imread(I1name).astype('float'), -1)[::2, ::2]
+I0 = np.rot90(plt.imread(I0name).astype('float'), -1)
+I1 = np.rot90(plt.imread(I1name).astype('float'), -1)
 #I0_inp = np.rot90(plt.imread(I0name).astype('float'), -1)[::4, ::4]
 #I1_inp = np.rot90(plt.imread(I1name).astype('float'), -1)[::4, ::4]
 #
@@ -615,7 +620,7 @@ I1 = np.rot90(plt.imread(I1name).astype('float'), -1)[::2, ::2]
 
 # Discrete reconstruction space: discretized functions on the rectangle
 space = odl.uniform_discr(
-    min_pt=[-16, -16], max_pt=[16, 16], shape=[128, 128],
+    min_pt=[-16, -16], max_pt=[16, 16], shape=[64, 64],
     dtype='float32', interp='linear')
 
 # Create the ground truth as the given image
@@ -657,12 +662,12 @@ impl1 = 'mp'
 # Implementation method for image matching or image reconstruction,
 # impl chooses 'matching' or 'reconstruction', 'matching' means image matching,
 # 'reconstruction' means image reconstruction
-impl2 = 'reconstruction'
+impl2 = 'matching'
 
 # Implementation method with Klas Modin or rkhs
 # impl chooses 'poisson' or 'rkhs', 'poisson' means using poisson solver,
 # 'rkhs' means using V-gradient
-impl3 = 'rkhs'
+impl3 = 'poisson'
 
 # Normalize the template's density as the same as the ground truth if consider
 # mass preserving method
@@ -678,16 +683,16 @@ template.show('Template')
 # For image reconstruction
 if impl2 == 'reconstruction':
     # Give step size for solver
-    eps = 0.05
+    eps = 0.01
 
     # Give regularization parameter
-    lamb = 0.05
+    lamb = 0.001
 
     # Fix the sigma parameter in the kernel
     sigma = 5.0
 
     # Give the number of directions
-    num_angles = 200
+    num_angles = 16
     
     # Create the uniformly distributed directions
     angle_partition = odl.uniform_partition(0, np.pi, num_angles,
@@ -695,7 +700,7 @@ if impl2 == 'reconstruction':
     
     # Create 2-D projection domain
     # The length should be 1.5 times of that of the reconstruction space
-    detector_partition = odl.uniform_partition(-24, 24, 181)
+    detector_partition = odl.uniform_partition(-24, 24, 92)
     
     # Create 2-D parallel projection geometry
     geometry = odl.tomo.Parallel2dGeometry(angle_partition,
@@ -708,7 +713,7 @@ if impl2 == 'reconstruction':
     proj_data = op(ground_truth)
     
     # Add white Gaussion noise onto the noiseless data
-    noise = odl.phantom.white_noise(op.range) * 0.0
+    noise = odl.phantom.white_noise(op.range) * 0.1
     
     # Add white Gaussion noise from file
     #noise = ray_trafo.range.element(np.load('noise_20angles.npy'))
@@ -743,7 +748,7 @@ if impl2 == 'reconstruction':
     inv_inertia_op = inverse_inertia_op(impl3)
 
     # Compute by optimal information transport solver
-    rec_result, E = optimal_information_transport_solver_old(
+    rec_result, E = optimal_information_transport_solver(
         gradS, template, niter, eps, lamb, inv_inertia_op, impl1, callback)
 
     # Show result

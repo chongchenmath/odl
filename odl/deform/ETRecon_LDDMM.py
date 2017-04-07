@@ -54,17 +54,20 @@ downsam = 1
 data_downsam = data[:, :, ::downsam]
 
 # --- Getting geometry --- #
+det_pix_size = 0.521
 
 # Create 3-D parallel projection geometry
 single_axis_geometry = geometry_mrc_data(data_extent=data_extent,
                                          data_shape=data.shape,
+                                         det_pix_size=det_pix_size,
+                                         units='physical',
                                          extended_header=extended_header,
                                          downsam=downsam)
 
 # --- Creating reconstruction space --- #
 
 # Voxels in 3D region of interest
-rec_shape = (200, 200, 200)
+rec_shape = (data.shape[0], data.shape[0], data.shape[0])
 
 ## Create reconstruction extent
 ## for rod 
@@ -73,12 +76,13 @@ rec_shape = (200, 200, 200)
 
 # Create reconstruction extent
 # for triangle, sphere
-rec_extent = np.asarray((1024, 1024, 1024), float)
+rec_extent = np.asarray(rec_shape, float)
 #min_pt = np.asarray((-100, -100, -100), float)
 #max_pt = np.asarray((100, 100, 100), float)
 
 # Reconstruction space
-rec_space = uniform_discr(-rec_extent / 2, rec_extent / 2, rec_shape,
+rec_space = uniform_discr(-rec_extent / 2 * det_pix_size,
+                          rec_extent / 2  * det_pix_size, rec_shape,
                           dtype='float32', interp='linear')
 
 # --- Creating forward operator --- #
@@ -127,7 +131,7 @@ data_elem.show(title='Data in one projection',
 ##                    file_name='rod_FBPrecon_angle6.nii')
 #result_2_mrc_format(result=rec_result_FBP_save,
 #                    file_name='triangle_FBPrecon_angle6_8.mrc')
-#
+
 
 #%%%
 # --- Reconstructing by LDDMM-based method --- #    
@@ -154,10 +158,6 @@ template = sphere(rec_space, smooth=True, taper=10.0)
 ## Show one sinograph
 #data_template.show(title='Data in one projection',
 #               indices=np.s_[data_elem.shape[0] // 2, :, :])
-
-
-# Maximum iteration number
-niter = 200
 
 # Implementation method for mass preserving or not,
 # impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
@@ -191,6 +191,9 @@ callback = (CallbackPrintIteration() &
             CallbackShow(indices=np.s_[:, rec_space.shape[1] // 2, :], aspect='equal') &
             CallbackShow(indices=np.s_[rec_space.shape[0] // 2, :, :], aspect='equal'))
 
+# Maximum iteration number
+niter = 20
+
 # Give step size for solver
 eps = 0.0005
 
@@ -200,7 +203,7 @@ lamb = 0.0000001
 # Give the number of time points
 time_itvs = 20
 
-sigma = 3.0
+sigma = 0.5
 
 # Give kernel function
 def kernel(x):
@@ -231,7 +234,7 @@ rec_result.show('rec_result', indices=np.s_[rec_result.shape[0] // 2, :, :], asp
 #result_2_nii_format(result=rec_result_save,
 #                    file_name='rod_LDDMMrecon_angle6_iter50.nii')
 result_2_mrc_format(result=rec_result_save,
-                    file_name='triangle_LDDMMrecon_angle151_iter200_kernel3_size200.mrc')
+                    file_name='triangle_LDDMMrecon_angle151_iter200_kernel0_5_size20.mrc')
 
 
 # --- Showing reconstructed result --- #  

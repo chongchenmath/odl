@@ -46,7 +46,7 @@ def read_mrc_data(file_path=None, force_type=None, normalize=None):
     data_extent = data_csides * data_shape
     
     if normalize == True:
-        data = (data + 32768.0) / 327.68 * 5.0
+        data = (data + 32768.0) / 327.68 / 2.0
     
     if force_type == 'FEI1':    
         extended_header = reader.read_extended_header(force_type='FEI1')
@@ -55,8 +55,8 @@ def read_mrc_data(file_path=None, force_type=None, normalize=None):
         return data, data_extent, header
 
 
-def geometry_mrc_data(data_extent=None, data_shape=None,
-                      extended_header=None, downsam=None):
+def geometry_mrc_data(data_extent=None, data_shape=None, det_pix_size=None,
+                      units='pixel', extended_header=None, downsam=1):
     """Get the geometry of FEI MRC data.
     
     Now only support single axis tilt geometry. 
@@ -80,15 +80,27 @@ def geometry_mrc_data(data_extent=None, data_shape=None,
 #    detector_partition = uniform_partition(-data_extent[0:2],
 #                                           data_extent[0:2],
 #                                           data_shape[0:2])  
-    detector_partition = uniform_partition(-data_extent[0:2] / data_extent[0] * 512,
-                                           data_extent[0:2] / data_extent[0] * 512,
-                                           data_shape[0:2])  
+    if units == 'pixel':
+        detector_partition = uniform_partition(-data_extent[0:2] / 2,
+                                               data_extent[0:2] / 2,
+                                               data_shape[0:2])  
+    
+        # Have 151 angles uniformly distributed from -74.99730682 to 74.99730682
+        angle_partition = uniform_partition(np.deg2rad(extended_header['a_tilt'][0]), 
+                                            np.deg2rad(extended_header['a_tilt'][data_shape[-1]-1]),
+                                            ceil(data_shape[-1] / float(downsam)), 
+                                            nodes_on_bdry=[(True, True)])
 
-    # Have 151 angles uniformly distributed from -74.99730682 to 74.99730682
-    angle_partition = uniform_partition(np.deg2rad(extended_header['a_tilt'][0]), 
-                                        np.deg2rad(extended_header['a_tilt'][data_shape[-1]-1]),
-                                        ceil(data_shape[-1] / float(downsam)), 
-                                        nodes_on_bdry=[(True, True)])
+    if units == 'physical': 
+        detector_partition = uniform_partition(-data_extent[0:2] / 2.0 * det_pix_size,
+                                               data_extent[0:2] / 2.0 * det_pix_size,
+                                               data_shape[0:2])  
+    
+        # Have 151 angles uniformly distributed from -74.99730682 to 74.99730682
+        angle_partition = uniform_partition(np.deg2rad(extended_header['a_tilt'][0]), 
+                                            np.deg2rad(extended_header['a_tilt'][data_shape[-1]-1]),
+                                            ceil(data_shape[-1] / float(downsam)), 
+                                            nodes_on_bdry=[(True, True)])
 
     # Create 3-D parallel projection geometry
     return Parallel3dAxisGeometry(angle_partition, detector_partition,

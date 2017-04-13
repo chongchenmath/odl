@@ -192,24 +192,26 @@ callback = (CallbackPrintIteration() &
             CallbackShow(indices=np.s_[rec_space.shape[0] // 2, :, :], aspect='equal'))
 
 # Maximum iteration number
-niter = 20
+niter = 100
 
 # Give step size for solver
-eps = 0.0005
+eps = 0.01
 
 # Give regularization parameter
-lamb = 0.0000001
+lamb = 0.00000002
 
 # Give the number of time points
 time_itvs = 20
 
-sigma = 0.5
+# Choose parameter for kernel function
+sigma = 0.8
 
 # Give kernel function
 def kernel(x):
     scaled = [xi ** 2 / (2 * sigma ** 2) for xi in x]
     return np.exp(-sum(scaled))
 
+# Initialize the reconstruction result
 rec_result = template
 
 # Compute by LDDMM solver
@@ -217,9 +219,9 @@ image_N0, E = LDDMM_gradient_descent_solver(forward_op, data_elem, rec_result,
                                             time_itvs, niter, eps, lamb,
                                             kernel, impl, callback)
 
+# Get the results
 rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
 rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])
-
 rec_result = rec_space.element(image_N0[time_itvs])
 rec_result_save = np.asarray(rec_result)
 #rec_result_save = np.where(rec_result_save >= 0.64, rec_result_save, 0.0)
@@ -234,7 +236,7 @@ rec_result.show('rec_result', indices=np.s_[rec_result.shape[0] // 2, :, :], asp
 #result_2_nii_format(result=rec_result_save,
 #                    file_name='rod_LDDMMrecon_angle6_iter50.nii')
 result_2_mrc_format(result=rec_result_save,
-                    file_name='triangle_LDDMMrecon_angle151_iter200_kernel0_5_size20.mrc')
+                    file_name='triangle_LDDMMrecon_angle151_iter100_kernel0_8_size200.mrc')
 
 
 # --- Showing reconstructed result --- #  

@@ -261,7 +261,7 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
     # Give the number of time intervals
     N = time_pts
 
-    # Give the inverse of time intervals
+    # Get the inverse of time intervals
     inv_N = 1.0 / N
     
     # Create the gradient operator for the L2 functional
@@ -293,7 +293,7 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
     # Give the initial two series deformations and series Jacobian determinant
     image_N0 = series_image_space.element()
     grad_data_matching_N1 = series_image_space.element()
-    grad_data_matching = image_domain.element(gradS(I))
+    grad_data_matching_const = image_domain.element(gradS(I))
 
     if impl=='geom':
         detDphi_N1 = series_image_space.element()
@@ -302,13 +302,13 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
         mp_deformed_image_N0 = series_image_space.element()
 
     for i in range(N+1):
-        image_N0[i] = image_domain.element(I).copy()
+        image_N0[i] = image_domain.element(I)
         if impl=='geom':
             detDphi_N1[i] = image_domain.one()
         elif impl=='mp':
             detDphi_N0[i] = image_domain.one()
-            mp_deformed_image_N0[i] = image_N0[i].copy()
-        grad_data_matching_N1[i] = grad_data_matching.copy()
+            mp_deformed_image_N0[i] = image_N0[i]
+        grad_data_matching_N1[i] = grad_data_matching_const
 
     # Create the gradient op
     grad_op = Gradient(domain=image_domain, method='forward',
@@ -329,8 +329,8 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
         for k in range(niter):
             # Update the velocity field
             for i in range(N+1):
-                tmp1 = (grad_data_matching_N1[i] * detDphi_N1[i]).copy()
-                tmp = grad_op(image_N0[i]).copy()
+                tmp1 = (grad_data_matching_N1[i] * detDphi_N1[i])
+                tmp = grad_op(image_N0[i])
 
                 for j in range(dim):
                     tmp[j] *= tmp1
@@ -338,25 +338,25 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
                     vectorial_ft_fit_op(tmp) * ft_kernel_fitting)
     
                 vector_fields[i] = (vector_fields[i] - eps * (
-                    lamb * vector_fields[i] - tmp3)).copy()
+                    lamb * vector_fields[i] - tmp3))
     
             # Update image_N0 and detDphi_N1
             for i in range(N):
                 # Update image_N0[i+1] by image_N0[i] and vector_fields[i+1]
                 image_N0[i+1] = image_domain.element(
                     _linear_deform(image_N0[i],
-                                   -inv_N * vector_fields[i+1])).copy()
+                                   -inv_N * vector_fields[i+1]))
 #                # Update detDphi_N1[N-i-1] by detDphi_N1[N-i]
 #                jacobian_det = image_domain.element(
-#                    np.exp(inv_N * div_op(vector_fields[N-i-1]))).copy()
+#                    np.exp(inv_N * div_op(vector_fields[N-i-1])))
                 jacobian_det = image_domain.element(
-                        1.0 + inv_N * div_op(vector_fields[N-i-1])).copy()
+                        1.0 + inv_N * div_op(vector_fields[N-i-1]))
                 detDphi_N1[N-i-1] = (
                     jacobian_det * image_domain.element(_linear_deform(
-                        detDphi_N1[N-i], inv_N * vector_fields[N-i-1]))).copy()
+                        detDphi_N1[N-i], inv_N * vector_fields[N-i-1])))
             
             # Update the deformed template
-            PhiStarI = image_N0[N].copy()
+            PhiStarI = image_N0[N]
     
             # Show intermediate result
             if callback is not None:
@@ -367,11 +367,11 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
     
             # Update gradient of the data matching: grad S(W_I(v^k))
             grad_data_matching_N1[N] = image_domain.element(
-                gradS(PhiStarI)).copy()
+                gradS(PhiStarI))
             for i in range(N):
                 grad_data_matching_N1[N-i-1] = image_domain.element(
                     _linear_deform(grad_data_matching_N1[N-i],
-                                   inv_N * vector_fields[N-i-1])).copy()
+                                   inv_N * vector_fields[N-i-1]))
     
         return image_N0, E
 
@@ -381,34 +381,34 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
         for k in range(niter):
             # Update the velocity field
             for i in range(N+1):
-                tmp = grad_op(grad_data_matching_N1[i]).copy()
+                tmp = grad_op(grad_data_matching_N1[i])
                 for j in range(dim):
                     tmp[j] *= mp_deformed_image_N0[i]
                 tmp3 = (2 * np.pi) ** (dim / 2.0) * vectorial_ft_fit_op.inverse(
                     vectorial_ft_fit_op(tmp) * ft_kernel_fitting)
     
                 vector_fields[i] = (vector_fields[i] - eps * (
-                    lamb * vector_fields[i] + tmp3)).copy()
+                    lamb * vector_fields[i] + tmp3))
 
             # Update image_N0 and detDphi_N1
             for i in range(N):
                 # Update image_N0[i+1] by image_N0[i] and vector_fields[i+1]
                 image_N0[i+1] = image_domain.element(
                     _linear_deform(image_N0[i], -inv_N * vector_fields[i+1])
-                    ).copy()
+                    )
 #                # Update detDphi_N0[i+1] by detDphi_N0[i]
 #                jacobian_det = image_domain.element(
-#                    np.exp(-inv_N * div_op(vector_fields[i+1]))).copy()
+#                    np.exp(-inv_N * div_op(vector_fields[i+1])))
                 jacobian_det = image_domain.element(
-                        1.0 - inv_N * div_op(vector_fields[i+1])).copy()
+                        1.0 - inv_N * div_op(vector_fields[i+1]))
                 detDphi_N0[i+1] = (jacobian_det * image_domain.element(
                     _linear_deform(detDphi_N0[i],
-                                   -inv_N * vector_fields[i+1]))).copy()
+                                   -inv_N * vector_fields[i+1])))
                 mp_deformed_image_N0[i+1] = (image_N0[i+1] *
-                    detDphi_N0[i+1]).copy()
+                    detDphi_N0[i+1])
             
             # Update the deformed template
-            PhiStarI = mp_deformed_image_N0[N].copy()
+            PhiStarI = mp_deformed_image_N0[N]
     
             # Show intermediate result
             if callback is not None:
@@ -419,11 +419,11 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
     
             # Update gradient of the data matching: grad S(W_I(v^k))
             grad_data_matching_N1[N] = image_domain.element(
-                gradS(PhiStarI)).copy()
+                gradS(PhiStarI))
             for i in range(N):
                 grad_data_matching_N1[N-i-1] = image_domain.element(
                     _linear_deform(grad_data_matching_N1[N-i],
-                                   inv_N * vector_fields[N-i-1])).copy()
+                                   inv_N * vector_fields[N-i-1]))
     
         return mp_deformed_image_N0, E
 

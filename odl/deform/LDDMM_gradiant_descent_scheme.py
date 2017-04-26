@@ -214,48 +214,56 @@ def shepp_logan_2d(space, modified=False):
     return geometric.ellipse_phantom(space, ellipses)
 
 
-def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
-                                  eps, lamb, kernel, impl='geom',
+def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
+                                  niter, eps, lamb, kernel, impl='geom',
                                   callback=None):
     """
     Solver for the shape-based reconstruction using LDDMM.
 
+    Notes
+    -----
     The model is:
+                
+        \min_v \lambda * \int_0^1 \|v(t)\|_V^2 dt + \|T(phi.I) - g\|_2^2,
 
-    min sigma * (1 - sqrt{DetJacInvPhi})^2 + (T(phi.I) - g)^2,
-    where phi.I := DetJacInvPhi * I(InvPhi) is a mass-preserving deformation.
-
-    Note that:
-    If T is an identity operator, the above model reduces for image matching.
-    If T is a forward projection operator, the above model is
-    for image reconstruction.
+    where ``phi.I := DetJacInvPhi * I(InvPhi)`` is for mass-preserving
+    deformation, instead, ``phi.I := I(InvPhi)`` is for geometric deformation.
+    ``InvPhi`` is the inverse of the solution at ``t=1`` of flow of
+    doffeomorphisms. ``DetJacInvPhi`` is the Jacobian determinant of ``InvPhi``.
+    ``T`` is the forward operator. If ``T`` is an identity operator,
+    the above model reduces to image matching. If ``T`` is a non-identity
+    forward operator, the above model is for shape-based image reconstrction.  
+    ``g`` is the detected data, ``data_elem``. ``I`` is the ``template``.
+    ``v(t)`` is the velocity vector. ``V`` is a reproducing kernel Hilbert
+    space for velocity vector. ``lamb`` is the regularization parameter. 
+    
 
     Parameters
     ----------
     forward_op : `Operator`
-        Forward operator.
-    data_elem : 'DiscreteLpElement'
-        Given data.
-    I : `DiscreteLpElement`
+        The forward operator of imaging.
+    data_elem : `DiscreteLpElement`
+        The given data.
+    template : `DiscreteLpElement`
         Fixed template deformed by the deformation.
     time_pts : `int`
         The number of time intervals
-    iter : 'int'
+    iter : `int`
         The given maximum iteration number.
-    eps : 'float'
+    eps : `float`
         The given step size.
-    lamb : 'float'
-        The given regularization parameter. It's a wight on 
+    lamb : `float`
+        The given regularization parameter. It's a wight on the
         regularization-term side.
-    kernel : 'function'
+    kernel : `function`
         Kernel function in RKHS.
-    impl : 'string'
-        The given implementation method for mass preserving or not.
+    impl : `string`, optional
+        The given implementation method for group action.
         The impl chooses 'mp' or 'geom', where 'mp' means using
         mass-preserving method, and 'geom' means using
-        non-mass-preserving method. Its defalt choice is 'geom'.
-    callback : 'Class'
-        Show the iterates.
+        non-mass-preserving geometric method. Its defalt choice is 'geom'.
+    callback : `Class`, optional
+        Show the intermediate results of iteration.
     """
 
     # Give the number of time intervals
@@ -293,7 +301,7 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
     # Give the initial two series deformations and series Jacobian determinant
     image_N0 = series_image_space.element()
     grad_data_matching_N1 = series_image_space.element()
-    grad_data_matching_const = image_domain.element(gradS(I))
+    grad_data_matching_const = image_domain.element(gradS(template))
 
     if impl=='geom':
         detDphi_N1 = series_image_space.element()
@@ -302,7 +310,7 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, I, time_pts, niter,
         mp_deformed_image_N0 = series_image_space.element()
 
     for i in range(N+1):
-        image_N0[i] = image_domain.element(I)
+        image_N0[i] = image_domain.element(template)
         if impl=='geom':
             detDphi_N1[i] = image_domain.one()
         elif impl=='mp':

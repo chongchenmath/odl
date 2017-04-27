@@ -44,6 +44,7 @@ __all__ = ('LDDMM_gradient_descent_solver',)
 
 def snr(signal, noise, impl):
     """Compute the signal-to-noise ratio.
+
     Parameters
     ----------
     signal : `array-like`
@@ -54,6 +55,7 @@ def snr(signal, noise, impl):
         Implementation method.
         'general' means SNR = variance(signal) / variance(noise),
         'dB' means SNR = 10 * log10 (variance(signal) / variance(noise)).
+
     Returns
     -------
     snr : `float`
@@ -77,12 +79,17 @@ def snr(signal, noise, impl):
 
 
 def padded_ft_op(space, padded_size):
-    """Create zero-padding fft setting
+    """Create zero-padding Fourier transform.
 
     Parameters
     ----------
-    space : the space needs to do FT
-    padding_size : the percent for zero padding
+    space : the space needed to do Fourier transform.
+    padded_size : the padded size in each axis.
+
+    Returns
+    -------
+    padded_ft_op : `operator`
+        Composed operator of Fourier transform composing with padded operator.
     """
     padded_op = ResizingOperator(
         space, ran_shp=[padded_size for _ in range(space.ndim)])
@@ -94,11 +101,17 @@ def padded_ft_op(space, padded_size):
 
 
 def fitting_kernel(space, kernel):
-    """Compute the n-D Fourier transform of the discrete kernel ``K``.
-
-    Calculate the n-D Fourier transform of the discrete kernel ``K`` on the
-    image grid points {y_i} to its reciprocal points {xi_i}.
-
+    """Compute the vectorized discrete kernel ``K``.
+    
+    Parameters
+    ----------
+    space : the space used to define kernel ``K``.
+    kernel : the used kernel function for data fitting term.
+    
+    Returns
+    -------
+    discretized_kernel : `ProductSpaceElement`
+        The vectorized discrete kernel with the space dimension
     """
     kspace = ProductSpace(space, space.ndim)
 
@@ -108,115 +121,9 @@ def fitting_kernel(space, kernel):
     return discretized_kernel
 
 
-def shepp_logan_ellipse_2d_template():
-    """Return ellipse parameters for a 2d Shepp-Logan phantom.
-
-    This assumes that the ellipses are contained in the square
-    [-1, -1]x[-1, -1].
-    """
-#    return [[2.00, .6900, .9200, 0.0000, 0.0000, 0],
-#            [-.98, .6624, .8740, 0.0000, -.0184, 0],
-#            [-.02, .1100, .3100, 0.2200, 0.0000, -18],
-#            [-.02, .1600, .4100, -.2200, 0.0000, 18],
-#            [0.01, .2100, .2500, 0.0000, 0.3500, 0],
-#            [0.01, .0460, .0460, 0.0000, 0.1000, 0],
-#            [0.01, .0460, .0460, 0.0000, -.1000, 0],
-#            [0.01, .0460, .0230, -.0800, -.6050, 0],
-#            [0.01, .0230, .0230, 0.0000, -.6060, 0],
-#            [0.01, .0230, .0460, 0.0600, -.6050, 0]]
-    #       value  axisx  axisy     x       y  rotation           
-    # Shepp-Logan region of interest
-    return [[2.00, .6900, .9200, 0.0000, 0.0000, 0],
-            [-.98, .6624, .8740, 0.0000, -.0184, 0],
-            [-.02, .1400, .1400, 0.2200, 0.0000, -18],
-            [-.02, .1600, .4100, -.2200, 0.0000, 18],
-            [0.01, .2100, .2500, 0.0000, 0.3500, 0],
-            [0.01, .0460, .0460, 0.0000, 0.1000, 0],
-            [0.01, .0460, .0460, 0.0000, -.1000, 0],
-            [0.01, .0460, .0230, -.0800, -.6050, 0],
-            [0.01, .0230, .0230, 0.0000, -.6060, 0],
-            [0.01, .0230, .0460, 0.0600, -.6050, 0]]
-#    return [[2.00, .6000, .6000, 0.0000, 0.1200, 0],
-#            [-.98, .5624, .5640, 0.0000, -.0184 + 0.12, 0],
-#            [-.02, .1100, .1100, 0.2600, 0.1500, -18],
-#            [-.02, .1300, .1300, -.2500, 0.2000, 18],
-#            [0.01, .1650, .1650, 0.0000, 0.3000, 0],
-#            [0.01, .0300, .0300, 0.0000, 0.1400, 0],
-#            [0.01, .0300, .0300, -.1400, 0.1000, 0],
-#            [0.01, .0360, .0230, -.0770, -.2050, 0],
-#            [0.01, .0230, .0230, 0.0000, -.2060, 0],
-#            [0.01, .0230, .0360, 0.0600, -.2050, 0]] 
-
-#template = shepp_logan_2d(space, modified=True)
-#template.show('template')
-
-
-def modified_shepp_logan_ellipses(ellipses):
-    """Modify ellipses to give the modified Shepp-Logan phantom.
-
-    Works for both 2d and 3d.
-    """
-    intensities = [1.0, -0.8, -0.2, -0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-
-    assert len(ellipses) == len(intensities)
-
-    for ellipse, intensity in zip(ellipses, intensities):
-        ellipse[0] = intensity
-
-
-def shepp_logan_ellipses(ndim, modified=False):
-    """Ellipses for the standard `Shepp-Logan phantom`_ in 2 or 3 dimensions.
-
-    Parameters
-    ----------
-    ndim : {2, 3}
-        Dimension of the space the ellipses should be in.
-    modified : bool, optional
-        True if the modified Shepp-Logan phantom should be given.
-        The modified phantom has greatly amplified contrast to aid
-        visualization.
-
-    See Also
-    --------
-    ellipse_phantom : Function for creating arbitrary ellipse phantoms
-    shepp_logan : Create a phantom with these ellipses
-    """
-    if ndim == 2:
-        ellipses = shepp_logan_ellipse_2d_template()
-    else:
-        raise ValueError('dimension not 2, no phantom available')
-
-    if modified:
-        modified_shepp_logan_ellipses(ellipses)
-
-    return ellipses
-
-
-def shepp_logan_2d(space, modified=False):
-    """Standard `Shepp-Logan phantom`_ in 2 or 3 dimensions.
-
-    Parameters
-    ----------
-    space : `DiscreteLp`
-        Space in which the phantom is created, must be 2- or 3-dimensional.
-    modified : `bool`, optional
-        True if the modified Shepp-Logan phantom should be given.
-        The modified phantom has greatly amplified contrast to aid
-        visualization.
-
-    See Also
-    --------
-    shepp_logan_ellipses : Get the parameters that define this phantom
-    ellipse_phantom : Function for creating arbitrary ellipse phantoms
-    """
-    ellipses = shepp_logan_ellipses(space.ndim, modified)
-
-    return geometric.ellipse_phantom(space, ellipses)
-
-
 def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
-                                  niter, eps, lamb, kernel, impl='geom',
-                                  callback=None):
+                                  niter, eps, lamb, kernel, impl1='geom',
+                                  impl2='least_square', callback=None):
     """
     Solver for the shape-based reconstruction using LDDMM.
 
@@ -224,18 +131,20 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
     -----
     The model is:
                 
-        \min_v \lambda * \int_0^1 \|v(t)\|_V^2 dt + \|T(phi.I) - g\|_2^2,
+        .. math:: \min_{v} \lambda * \int_0^1 \|v(t)\|_V^2 dt + \|T(\phi_1.I) - g\|_2^2,
 
-    where ``phi.I := DetJacInvPhi * I(InvPhi)`` is for mass-preserving
-    deformation, instead, ``phi.I := I(InvPhi)`` is for geometric deformation.
-    ``InvPhi`` is the inverse of the solution at ``t=1`` of flow of
-    doffeomorphisms. ``DetJacInvPhi`` is the Jacobian determinant of ``InvPhi``.
-    ``T`` is the forward operator. If ``T`` is an identity operator,
-    the above model reduces to image matching. If ``T`` is a non-identity
+    where :math:`\phi_1.I := |D\phi_1^{-1}| I(\phi_1^{-1})` is for
+    mass-preserving deformation, instead, :math:`\phi_1.I := I(\phi_1^{-1})`
+    is for geometric deformation. :math:`\phi_1^{-1}` is the inverse of
+    the solution at :math:`t=1` of flow of doffeomorphisms.
+    :math:`|D\phi_1^{-1}|` is the Jacobian determinant of :math:`\phi_1^{-1}`.
+    :math:`T` is the forward operator. If :math:`T` is an identity operator,
+    the above model reduces to image matching. If :math:`T` is a non-identity
     forward operator, the above model is for shape-based image reconstrction.  
-    ``g`` is the detected data, ``data_elem``. ``I`` is the ``template``.
-    ``v(t)`` is the velocity vector. ``V`` is a reproducing kernel Hilbert
-    space for velocity vector. ``lamb`` is the regularization parameter. 
+    :math:`g` is the detected data, `data_elem`. :math:`I` is the `template`.
+    :math:`v(t)` is the velocity vector. :math:`V` is a reproducing kernel
+    Hilbert space for velocity vector. :math:`lamb` is the regularization
+    parameter. 
     
 
     Parameters
@@ -253,17 +162,30 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
     eps : `float`
         The given step size.
     lamb : `float`
-        The given regularization parameter. It's a wight on the
+        The given regularization parameter. It's a weighted value on the
         regularization-term side.
     kernel : `function`
-        Kernel function in RKHS.
-    impl : `string`, optional
+        Kernel function in reproducing kernel Hilbert space.
+    impl1 : {'geom', 'mp'}, optional
         The given implementation method for group action.
-        The impl chooses 'mp' or 'geom', where 'mp' means using
+        The impl1 chooses 'mp' or 'geom', where 'mp' means using
         mass-preserving method, and 'geom' means using
         non-mass-preserving geometric method. Its defalt choice is 'geom'.
-    callback : `Class`, optional
+    impl2 : {'least square'}, optional
+        The given implementation method for data matching term.
+        Here the implementation only supports the case of least square.    
+    callback : `class`, optional
         Show the intermediate results of iteration.
+
+    Returns
+    -------
+    image_N0 : `ProductSpaceElement`
+        The series of images produced by template and velocity field.
+    mp_deformed_image_N0 : `ProductSpaceElement`
+        The series of mass-preserving images produced by template
+        and velocity field.
+    E : `numpy.array`
+        Storage of the energy values for iterations.
     """
 
     # Give the number of time intervals
@@ -272,28 +194,36 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
     # Get the inverse of time intervals
     inv_N = 1.0 / N
     
-    # Create the gradient operator for the L2 functional
-    gradS = forward_op.adjoint * (forward_op - data_elem)
+    # Create the gradient operator for the squared L2 functional
+    if impl2=='least_square':
+        gradS = forward_op.adjoint * (forward_op - data_elem)
+    else:
+        raise NotImplementedError('now only support least square')
 
-    # Create the space of image
-    image_domain = gradS.domain
+    # Create the space of images
+    image_space = gradS.domain
 
-    # Get the dimension
-    dim = image_domain.ndim
+    # Get the dimension of the space of images
+    dim = image_space.ndim
     
-    # FFT setting for data matching term, 1 means 100% padding
-    padded_size = 2 * image_domain.shape[0]
-    padded_ft_fit_op = padded_ft_op(image_domain, padded_size)
-    vectorial_ft_fit_op = DiagonalOperator(*([padded_ft_fit_op] * dim))
+    # Fourier transform setting for data matching term
+    # The padded_size is the size of the padded domain 
+    padded_size = 2 * image_space.shape[0]
+    # The pad_ft_op is the operator of Fourier transform
+    # composing with padded operator
+    pad_ft_op = padded_ft_op(image_space, padded_size)
+    # The vectorial_ft_op is a vectorial Fourier transform operator,
+    # which constructs the diagnal element of a matrix.
+    vectorial_ft_op = DiagonalOperator(*([pad_ft_op] * dim))
     
     # Compute the FT of kernel in fitting term
-    discretized_kernel = fitting_kernel(image_domain, kernel)
-    ft_kernel_fitting = vectorial_ft_fit_op(discretized_kernel)
+    discretized_kernel = fitting_kernel(image_space, kernel)
+    ft_kernel_fitting = vectorial_ft_op(discretized_kernel)
 
     # Create the space for series deformations and series Jacobian determinant
-    pspace = image_domain.tangent_bundle
+    pspace = image_space.tangent_bundle
     series_pspace = ProductSpace(pspace, N+1)
-    series_image_space = ProductSpace(image_domain, N+1)
+    series_image_space = ProductSpace(image_space, N+1)
 
     # Initialize vector fileds at different time points
     vector_fields = series_pspace.zero()
@@ -301,28 +231,33 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
     # Give the initial two series deformations and series Jacobian determinant
     image_N0 = series_image_space.element()
     grad_data_matching_N1 = series_image_space.element()
-    grad_data_matching_const = image_domain.element(gradS(template))
+    grad_data_matching_const = image_space.element(gradS(template))
 
-    if impl=='geom':
+    if impl1=='geom':
         detDphi_N1 = series_image_space.element()
-    elif impl=='mp':
+    elif impl1=='mp':
         detDphi_N0 = series_image_space.element()
         mp_deformed_image_N0 = series_image_space.element()
+    else:
+        raise NotImplementedError('unknown group action')
 
     for i in range(N+1):
-        image_N0[i] = image_domain.element(template)
-        if impl=='geom':
-            detDphi_N1[i] = image_domain.one()
-        elif impl=='mp':
-            detDphi_N0[i] = image_domain.one()
+        image_N0[i] = image_space.element(template)
+        
+        if impl1=='geom':
+            detDphi_N1[i] = image_space.one()
+        elif impl1=='mp':
+            detDphi_N0[i] = image_space.one()
             mp_deformed_image_N0[i] = image_N0[i]
+
         grad_data_matching_N1[i] = grad_data_matching_const
 
-    # Create the gradient op
-    grad_op = Gradient(domain=image_domain, method='forward',
+    # Create the gradient operator
+    grad_op = Gradient(domain=image_space, method='forward',
                        pad_mode='symmetric')
 
-    # Create the divergence op
+    # Create the divergence operator, which can be obtained from
+    # the adjoint of gradient operator 
     # div_op = Divergence(domain=pspace, method='forward', pad_mode='symmetric')
     div_op = -grad_op.adjoint
     
@@ -332,7 +267,7 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
     E = np.hstack((E, np.zeros(niter)))
 
     # Begin iteration for non-mass-preserving case
-    if impl=='geom':
+    if impl1=='geom':
         print(impl)
         for k in range(niter):
             # Update the velocity field
@@ -342,8 +277,8 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
 
                 for j in range(dim):
                     tmp[j] *= tmp1
-                tmp3 = (2 * np.pi) ** (dim / 2.0) * vectorial_ft_fit_op.inverse(
-                    vectorial_ft_fit_op(tmp) * ft_kernel_fitting)
+                tmp3 = (2 * np.pi) ** (dim / 2.0) * vectorial_ft_op.inverse(
+                    vectorial_ft_op(tmp) * ft_kernel_fitting)
     
                 vector_fields[i] = (vector_fields[i] - eps * (
                     lamb * vector_fields[i] - tmp3))
@@ -351,16 +286,16 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
             # Update image_N0 and detDphi_N1
             for i in range(N):
                 # Update image_N0[i+1] by image_N0[i] and vector_fields[i+1]
-                image_N0[i+1] = image_domain.element(
+                image_N0[i+1] = image_space.element(
                     _linear_deform(image_N0[i],
                                    -inv_N * vector_fields[i+1]))
 #                # Update detDphi_N1[N-i-1] by detDphi_N1[N-i]
 #                jacobian_det = image_domain.element(
 #                    np.exp(inv_N * div_op(vector_fields[N-i-1])))
-                jacobian_det = image_domain.element(
+                jacobian_det = image_space.element(
                         1.0 + inv_N * div_op(vector_fields[N-i-1]))
                 detDphi_N1[N-i-1] = (
-                    jacobian_det * image_domain.element(_linear_deform(
+                    jacobian_det * image_space.element(_linear_deform(
                         detDphi_N1[N-i], inv_N * vector_fields[N-i-1])))
             
             # Update the deformed template
@@ -374,17 +309,17 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
             E[k+kE] += np.asarray((forward_op(PhiStarI) - data_elem)**2).sum()
     
             # Update gradient of the data matching: grad S(W_I(v^k))
-            grad_data_matching_N1[N] = image_domain.element(
+            grad_data_matching_N1[N] = image_space.element(
                 gradS(PhiStarI))
             for i in range(N):
-                grad_data_matching_N1[N-i-1] = image_domain.element(
+                grad_data_matching_N1[N-i-1] = image_space.element(
                     _linear_deform(grad_data_matching_N1[N-i],
                                    inv_N * vector_fields[N-i-1]))
     
         return image_N0, E
 
     # Begin iteration for mass-preserving case
-    elif impl=='mp':
+    elif impl1=='mp':
         print(impl)
         for k in range(niter):
             # Update the velocity field
@@ -392,8 +327,8 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
                 tmp = grad_op(grad_data_matching_N1[i])
                 for j in range(dim):
                     tmp[j] *= mp_deformed_image_N0[i]
-                tmp3 = (2 * np.pi) ** (dim / 2.0) * vectorial_ft_fit_op.inverse(
-                    vectorial_ft_fit_op(tmp) * ft_kernel_fitting)
+                tmp3 = (2 * np.pi) ** (dim / 2.0) * vectorial_ft_op.inverse(
+                    vectorial_ft_op(tmp) * ft_kernel_fitting)
     
                 vector_fields[i] = (vector_fields[i] - eps * (
                     lamb * vector_fields[i] + tmp3))
@@ -401,15 +336,15 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
             # Update image_N0 and detDphi_N1
             for i in range(N):
                 # Update image_N0[i+1] by image_N0[i] and vector_fields[i+1]
-                image_N0[i+1] = image_domain.element(
+                image_N0[i+1] = image_space.element(
                     _linear_deform(image_N0[i], -inv_N * vector_fields[i+1])
                     )
 #                # Update detDphi_N0[i+1] by detDphi_N0[i]
 #                jacobian_det = image_domain.element(
 #                    np.exp(-inv_N * div_op(vector_fields[i+1])))
-                jacobian_det = image_domain.element(
+                jacobian_det = image_space.element(
                         1.0 - inv_N * div_op(vector_fields[i+1]))
-                detDphi_N0[i+1] = (jacobian_det * image_domain.element(
+                detDphi_N0[i+1] = (jacobian_det * image_space.element(
                     _linear_deform(detDphi_N0[i],
                                    -inv_N * vector_fields[i+1])))
                 mp_deformed_image_N0[i+1] = (image_N0[i+1] *
@@ -426,10 +361,10 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
             E[k+kE] += np.asarray((forward_op(PhiStarI) - data_elem)**2).sum()
     
             # Update gradient of the data matching: grad S(W_I(v^k))
-            grad_data_matching_N1[N] = image_domain.element(
+            grad_data_matching_N1[N] = image_space.element(
                 gradS(PhiStarI))
             for i in range(N):
-                grad_data_matching_N1[N-i-1] = image_domain.element(
+                grad_data_matching_N1[N-i-1] = image_space.element(
                     _linear_deform(grad_data_matching_N1[N-i],
                                    inv_N * vector_fields[N-i-1]))
     

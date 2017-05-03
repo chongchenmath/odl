@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from odl.discr import (Gradient, uniform_discr, ResizingOperator)
 from odl.trafos import FourierTransform
 from odl.space import ProductSpace
-from odl.tomo import RayTransform, fbp_op
+from odl.tomo import RayTransform
 from odl.phantom import (white_noise, disc_phantom, submarine,
                          shepp_logan, geometric, sphere)
 from odl.operator import (DiagonalOperator, IdentityOperator)
@@ -268,7 +268,7 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
 
     # Begin iteration for non-mass-preserving case
     if impl1=='geom':
-        print(impl)
+        print(impl1)
         for k in range(niter):
             # Update the velocity field
             for i in range(N+1):
@@ -320,7 +320,7 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
 
     # Begin iteration for mass-preserving case
     elif impl1=='mp':
-        print(impl)
+        print(impl1)
         for k in range(niter):
             # Update the velocity field
             for i in range(N+1):
@@ -373,16 +373,15 @@ def LDDMM_gradient_descent_solver(forward_op, data_elem, template, time_pts,
 
 if __name__ == '__main__':
 
-
+    import odl
     # --- Reading data --- #
 
     # Get the path of data
     directory = '/home/chchen/SwedenWork_Chong/Data_S/wetransfer-569840/'
     data_filename = 'triangle.mrc'
     file_path = directory + data_filename
-    data, data_extent, header, extended_header = read_mrc_data(file_path=file_path,
-                                                               force_type='FEI1',
-                                                               normalize=True)
+    data, data_extent, header, extended_header = odl.deform.mrc_data_io.read_mrc_data(
+            file_path=file_path, force_type='FEI1', normalize=True)
     
     #Downsample the data
     downsam = 15
@@ -457,11 +456,16 @@ if __name__ == '__main__':
     # Implementation method for mass preserving or not,
     # impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
     # 'geom' means geometric deformation method
-    impl = 'geom'
+    impl1 = 'geom'
+    
+    impl2 = 'least_square'
     
     # Show intermiddle results
-    callback = CallbackShow(
-        '{!r} iterates'.format(impl), display_step=5) & CallbackPrintIteration()
+    callback = (CallbackPrintIteration() &
+            CallbackShow(indices=np.s_[:, :, rec_space.shape[-1] // 2], aspect='equal') &
+            CallbackShow(indices=np.s_[:, rec_space.shape[1] // 2, :], aspect='equal') &
+            CallbackShow(indices=np.s_[rec_space.shape[0] // 2, :, :], aspect='equal'))
+
     
     # Give step size for solver
     eps = 0.001
@@ -481,7 +485,7 @@ if __name__ == '__main__':
     # Compute by LDDMM solver
     image_N0, E = LDDMM_gradient_descent_solver(forward_op, data_elem, template,
                                                 time_itvs, niter, eps, lamb,
-                                                kernel, impl, callback)
+                                                kernel, impl1, impl2,  callback)
     
     rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
     rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])

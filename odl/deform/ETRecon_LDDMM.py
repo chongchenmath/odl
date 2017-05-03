@@ -80,7 +80,7 @@ rec_extent = np.asarray(rec_shape, float)
 #min_pt = np.asarray((-100, -100, -100), float)
 #max_pt = np.asarray((100, 100, 100), float)
 
-# Reconstruction space
+# Reconstruction space with physical setting
 rec_space = uniform_discr(-rec_extent / 2 * det_pix_size,
                           rec_extent / 2  * det_pix_size, rec_shape,
                           dtype='float32', interp='linear')
@@ -104,10 +104,10 @@ data_elem.show(title='Data in one projection',
 
 
 #%%%
-## --- Reconstructing by FBP --- #    
-##
-##
-## Create FBP operator
+# --- Reconstructing by FBP --- #    
+#
+#
+# Create FBP operator
 #FBP = fbp_op(forward_op, padding=True, filter_type='Hamming',
 #             frequency_scaling=1.0)
 ## Implement FBP method            
@@ -162,9 +162,9 @@ template = sphere(rec_space, smooth=True, taper=10.0)
 # Implementation method for mass preserving or not,
 # impl chooses 'mp' or 'geom', 'mp' means mass-preserving deformation method,
 # 'geom' means geometric deformation method
-impl = 'geom'
+impl1 = 'geom'
 
-if impl == 'mp':
+if impl1 == 'mp':
     # Evaluate the mass from data
     mean = np.sum(data_temp2[data_temp2.shape[0] // 2]) / data_temp2[data_temp2.shape[0] // 2].size
     temp = data_temp2[data_temp2.shape[0] // 2] - mean
@@ -176,6 +176,8 @@ if impl == 'mp':
     
     # Get the same mass for template
     template = mass_from_data / mass_template * template
+
+impl2='least_square'
 
 # Show slices of template
 template.show('template, sphere smooth=True',
@@ -195,7 +197,7 @@ callback = (CallbackPrintIteration() &
 niter = 100
 
 # Give step size for solver
-eps = 0.01
+eps = 0.08
 
 # Give regularization parameter
 lamb = 0.00000002
@@ -204,7 +206,7 @@ lamb = 0.00000002
 time_itvs = 20
 
 # Choose parameter for kernel function
-sigma = 0.8
+sigma = 0.5
 
 # Give kernel function
 def kernel(x):
@@ -217,11 +219,12 @@ rec_result = template
 # Compute by LDDMM solver
 image_N0, E = LDDMM_gradient_descent_solver(forward_op, data_elem, rec_result,
                                             time_itvs, niter, eps, lamb,
-                                            kernel, impl, callback)
+                                            kernel, impl1, impl2, callback)
 
 # Get the results
 rec_result_1 = rec_space.element(image_N0[time_itvs // 3])
 rec_result_2 = rec_space.element(image_N0[time_itvs * 2 // 3])
+
 rec_result = rec_space.element(image_N0[time_itvs])
 rec_result_save = np.asarray(rec_result)
 #rec_result_save = np.where(rec_result_save >= 0.64, rec_result_save, 0.0)
@@ -236,7 +239,7 @@ rec_result.show('rec_result', indices=np.s_[rec_result.shape[0] // 2, :, :], asp
 #result_2_nii_format(result=rec_result_save,
 #                    file_name='rod_LDDMMrecon_angle6_iter50.nii')
 result_2_mrc_format(result=rec_result_save,
-                    file_name='triangle_LDDMMrecon_angle151_iter100_kernel0_8_size200.mrc')
+                    file_name='triangle_LDDMMrecon_angle151_iter100_kernel0_5_eps0_08_size200.mrc')
 
 
 # --- Showing reconstructed result --- #  

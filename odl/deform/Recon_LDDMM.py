@@ -30,7 +30,7 @@ from odl.solvers import CallbackShow, CallbackPrintIteration
 from odl.phantom import (white_noise, disc_phantom, submarine,
                          shepp_logan, geometric)
 from odl.deform.LDDMM_gradiant_descent_scheme import (
-        LDDMM_gradient_descent_solver)
+        LDDMM_gradient_descent_solver, snr)
 standard_library.install_aliases()
 
 
@@ -140,40 +140,6 @@ def shepp_logan_2d(space, modified=False):
     return geometric.ellipse_phantom(space, ellipses)
 
 
-def snr(signal, noise, impl):
-    """Compute the signal-to-noise ratio.
-    Parameters
-    ----------
-    signal : `array-like`
-        Noiseless data.
-    noise : `array-like`
-        Noise.
-    impl : {'general', 'dB'}
-        Implementation method.
-        'general' means SNR = variance(signal) / variance(noise),
-        'dB' means SNR = 10 * log10 (variance(signal) / variance(noise)).
-    Returns
-    -------
-    snr : `float`
-        Value of signal-to-noise ratio.
-        If the power of noise is zero, then the return is 'inf',
-        otherwise, the computed value.
-    """
-    if np.abs(np.asarray(noise)).sum() != 0:
-        ave1 = np.sum(signal) / signal.size
-        ave2 = np.sum(noise) / noise.size
-        s_power = np.sqrt(np.sum((signal - ave1) * (signal - ave1)))
-        n_power = np.sqrt(np.sum((noise - ave2) * (noise - ave2)))
-        if impl == 'general':
-            return s_power / n_power
-        elif impl == 'dB':
-            return 10.0 * np.log10(s_power / n_power)
-        else:
-            raise ValueError('unknown `impl` {}'.format(impl))
-    else:
-        return float('inf')
-
-
 # --- Give input images --- #
 
 #I0name = './pictures/c_highres.png'
@@ -271,7 +237,7 @@ eps = 0.05
 lamb = 0.0000001
 
 # Give the number of directions
-num_angles = 4
+num_angles = 40
 
 # Create the uniformly distributed directions
 angle_partition = uniform_partition(0.0, np.pi, num_angles,
@@ -285,7 +251,7 @@ detector_partition = uniform_partition(-24, 24, 620)
 geometry = Parallel2dGeometry(angle_partition, detector_partition)
 
 # Ray transform aka forward projection. We use ASTRA CUDA backend.
-forward_op = RayTransform(rec_space, geometry, impl='astra_cpu')
+forward_op = RayTransform(rec_space, geometry, impl='astra_cuda')
 
 # Create projection data by calling the op on the phantom
 proj_data = forward_op(ground_truth)
